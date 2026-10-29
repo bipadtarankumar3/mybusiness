@@ -32,6 +32,11 @@ import {
   Megaphone,
   Workflow,
   RefreshCw,
+  Lock,
+  CreditCard,
+  ExternalLink,
+  EyeOff,
+  AlertCircle,
 } from 'lucide-react';
 
 function AdminConsoleInner({ defaultTab = 'overview' }) {
@@ -92,6 +97,21 @@ function AdminConsoleInner({ defaultTab = 'overview' }) {
   const [savingPlan, setSavingPlan] = useState(false);
   const [deletePlanTarget, setDeletePlanTarget] = useState(null);
 
+  // Admin Platform Razorpay Gateway Settings
+  const [adminRazorpay, setAdminRazorpay] = useState({
+    keyId: '',
+    keySecret: '',
+    webhookSecret: '',
+    isTestMode: true,
+    accountName: 'ChatFlow Platform Razorpay Gateway',
+    configured: false,
+    hasSecret: false,
+    status: 'not_configured',
+  });
+  const [showRzpSecret, setShowRzpSecret] = useState(false);
+  const [savingAdminRzp, setSavingAdminRzp] = useState(false);
+  const [rzpFeedback, setRzpFeedback] = useState(null);
+
   useEffect(() => {
     const t = searchParams.get('tab');
     if (t && ['overview', 'users', 'visit', 'plans', 'subscriptions', 'settings'].includes(t)) {
@@ -139,14 +159,16 @@ function AdminConsoleInner({ defaultTab = 'overview' }) {
   const loadAllAdminData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersRes, plansRes, subsRes] = await Promise.all([
+      const [usersRes, plansRes, subsRes, rzpRes] = await Promise.all([
         api.get('/admin/users'),
         api.get('/admin/plans'),
         api.get('/admin/subscriptions'),
+        api.get('/admin/settings/payment-gateway').catch(() => null),
       ]);
       const uList = usersRes?.data || usersRes;
       const pList = plansRes?.data || plansRes;
       const sList = subsRes?.data || subsRes;
+      const rzpData = rzpRes?.data || rzpRes;
 
       if (Array.isArray(uList) && uList.length) setUsers(uList);
       if (Array.isArray(pList) && pList.length) setPlans(pList);
@@ -155,12 +177,63 @@ function AdminConsoleInner({ defaultTab = 'overview' }) {
       } else if (Array.isArray(uList)) {
         setSubscriptions(buildSubscriptionsFromUsers(uList));
       }
+
+      if (rzpData) {
+        setAdminRazorpay((prev) => ({
+          ...prev,
+          keyId: rzpData.keyId || '',
+          isTestMode: rzpData.isTestMode !== undefined ? rzpData.isTestMode : true,
+          accountName: rzpData.accountName || 'ChatFlow Platform Razorpay Gateway',
+          configured: Boolean(rzpData.configured),
+          hasSecret: Boolean(rzpData.hasSecret),
+          status: rzpData.status || 'not_configured',
+        }));
+      }
     } catch {
       setSubscriptions((prev) => (prev.length ? prev : buildSubscriptionsFromUsers(DEMO_ADMIN_USERS)));
     } finally {
       setLoading(false);
     }
   }, [buildSubscriptionsFromUsers]);
+
+  const handleSaveAdminRazorpay = async (e) => {
+    e.preventDefault();
+    if (!adminRazorpay.keyId.trim()) {
+      setRzpFeedback({ type: 'error', message: 'Razorpay Key ID is required.' });
+      return;
+    }
+    setSavingAdminRzp(true);
+    setRzpFeedback(null);
+    try {
+      const res = await api.post('/admin/settings/payment-gateway', {
+        keyId: adminRazorpay.keyId.trim(),
+        keySecret: adminRazorpay.keySecret.trim() || undefined,
+        webhookSecret: adminRazorpay.webhookSecret.trim() || undefined,
+        isTestMode: adminRazorpay.isTestMode,
+        accountName: adminRazorpay.accountName.trim() || undefined,
+      });
+      const data = res?.data || res;
+      setAdminRazorpay((p) => ({
+        ...p,
+        configured: true,
+        hasSecret: true,
+        status: 'configured',
+        keySecret: '',
+      }));
+      setRzpFeedback({
+        type: 'success',
+        message: 'Platform Razorpay Payment Gateway settings saved and encrypted with AES-256-GCM!',
+      });
+      showNotice('Platform Razorpay Gateway updated');
+    } catch (err) {
+      setRzpFeedback({
+        type: 'error',
+        message: err?.message || 'Failed to save Razorpay settings.',
+      });
+    } finally {
+      setSavingAdminRzp(false);
+    }
+  };
 
   useEffect(() => {
     loadAllAdminData();
@@ -946,85 +1019,315 @@ function AdminConsoleInner({ defaultTab = 'overview' }) {
 
       {/* ==================== TAB: USER ACCESS & SETTINGS ==================== */}
       {activeTab === 'settings' && (
-        <section className="panel-card">
-          <div className="panel-head">
-            <div>
-              <h3>Global User Access, Roles &amp; Account Settings ({users.length})</h3>
-              <p>
-                Configure user permissions, toggle active/suspended status, grant Super Admin access, or open full
-                account &amp; password settings.
-              </p>
-            </div>
-            <button type="button" className="btn btn-primary btn-sm" onClick={openCreateUserModal}>
-              <Plus size={15} /> Add New User
-            </button>
-          </div>
-          <div className="data-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Business Workspace</th>
-                  <th>Workspace Role</th>
-                  <th>Account Status</th>
-                  <th>Super Admin Access</th>
-                  <th style={{ textAlign: 'right' }}>Configure</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td>
-                      <div style={{ fontWeight: 700 }}>{u.name}</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>{u.email}</div>
-                    </td>
-                    <td>{u.business?.name || '—'}</td>
-                    <td>
-                      <span className="badge" style={{ textTransform: 'capitalize' }}>
-                        {u.role}
+        <div style={{ display: 'grid', gap: 24 }}>
+          {/* Platform Razorpay Payment Gateway Settings Card */}
+          <section className="panel-card">
+            <div className="panel-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    background: '#0c2340',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#3395ff',
+                    fontWeight: 900,
+                    fontSize: '1.1rem',
+                  }}
+                >
+                  ₹
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <h3 style={{ margin: 0 }}>Platform Razorpay Payment Gateway</h3>
+                    {adminRazorpay.configured ? (
+                      <span className="badge badge-green">
+                        <CheckCircle2 size={12} /> Configured &amp; Active
                       </span>
-                    </td>
-                    <td>
-                      {u.isActive ? (
-                        <span className="badge badge-green">Active</span>
-                      ) : (
-                        <span className="badge badge-coral">Suspended</span>
-                      )}
-                    </td>
-                    <td>
-                      {u.isSuperAdmin ? (
-                        <span className="badge badge-purple">
-                          <Crown size={11} /> Super Admin
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Standard User</span>
-                      )}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 8 }}>
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-sm"
-                          onClick={() => openEditUserModal(u)}
-                        >
-                          <Settings2 size={14} /> Edit Settings &amp; Plan
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          style={{ color: u.isActive ? 'var(--danger)' : 'var(--green-deep)' }}
-                          onClick={() => handleQuickToggleUserActive(u)}
-                        >
-                          {u.isActive ? 'Suspend' : 'Activate'}
-                        </button>
-                      </div>
-                    </td>
+                    ) : (
+                      <span className="badge">Not Configured</span>
+                    )}
+                    {adminRazorpay.isTestMode ? (
+                      <span className="badge badge-purple">Test Mode (rzp_test)</span>
+                    ) : (
+                      <span className="badge badge-green">Live Production (rzp_live)</span>
+                    )}
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--muted)' }}>
+                    Centrally configure the platform’s Razorpay Key ID and Secret. All user plan
+                    upgrades and subscription billing across the platform will be processed through
+                    this account.
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="https://dashboard.razorpay.com/app/keys"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-outline btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <span>Razorpay Dashboard</span>
+                <ExternalLink size={13} />
+              </a>
+            </div>
+
+            {rzpFeedback && (
+              <div
+                className={`alert ${
+                  rzpFeedback.type === 'success' ? 'alert-success' : 'alert-error'
+                }`}
+                role="status"
+                style={{ margin: '14px 20px 0 20px' }}
+              >
+                {rzpFeedback.type === 'success' ? <CheckCircle2 /> : <AlertCircle />}
+                <span>{rzpFeedback.message}</span>
+              </div>
+            )}
+
+            <form
+              onSubmit={handleSaveAdminRazorpay}
+              className="panel-body"
+              style={{ display: 'grid', gap: 16 }}
+            >
+              <div className="dash-grid-equal" style={{ gap: 16 }}>
+                <div className="field">
+                  <label className="label" htmlFor="admin-rzp-key-id">
+                    Razorpay Key ID *
+                  </label>
+                  <input
+                    id="admin-rzp-key-id"
+                    type="text"
+                    className="input"
+                    placeholder="rzp_test_... or rzp_live_..."
+                    value={adminRazorpay.keyId}
+                    onChange={(e) => setAdminRazorpay((p) => ({ ...p, keyId: e.target.value }))}
+                    required
+                  />
+                  <span className="field-hint">
+                    From your Razorpay Dashboard → Settings → API Keys.
+                  </span>
+                </div>
+
+                <div className="field">
+                  <label className="label" htmlFor="admin-rzp-key-secret">
+                    Razorpay Key Secret {adminRazorpay.hasSecret ? '(Leave blank to keep existing)' : '*'}
+                  </label>
+                  <div className="password-input-wrap">
+                    <input
+                      id="admin-rzp-key-secret"
+                      type={showRzpSecret ? 'text' : 'password'}
+                      className="input"
+                      placeholder={
+                        adminRazorpay.hasSecret ? '••••••••••••••••' : 'Enter Razorpay Key Secret'
+                      }
+                      value={adminRazorpay.keySecret}
+                      onChange={(e) =>
+                        setAdminRazorpay((p) => ({ ...p, keySecret: e.target.value }))
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowRzpSecret((v) => !v)}
+                      aria-label={showRzpSecret ? 'Hide secret' : 'Show secret'}
+                    >
+                      {showRzpSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <span className="field-hint">
+                    Stored on the server using AES-256-GCM authenticated encryption.
+                  </span>
+                </div>
+              </div>
+
+              <div className="dash-grid-equal" style={{ gap: 16 }}>
+                <div className="field">
+                  <label className="label" htmlFor="admin-rzp-webhook-secret">
+                    Webhook Secret (Optional)
+                  </label>
+                  <input
+                    id="admin-rzp-webhook-secret"
+                    type="password"
+                    className="input"
+                    placeholder="Razorpay webhook secret for renewal callbacks"
+                    value={adminRazorpay.webhookSecret}
+                    onChange={(e) =>
+                      setAdminRazorpay((p) => ({ ...p, webhookSecret: e.target.value }))
+                    }
+                  />
+                  <span className="field-hint">
+                    Used to verify automated subscription recurring payments and billing webhooks.
+                  </span>
+                </div>
+
+                <div className="field">
+                  <label className="label" htmlFor="admin-rzp-account-name">
+                    Platform Merchant Display Label
+                  </label>
+                  <input
+                    id="admin-rzp-account-name"
+                    type="text"
+                    className="input"
+                    placeholder="e.g. ChatFlow Platform Payments"
+                    value={adminRazorpay.accountName}
+                    onChange={(e) =>
+                      setAdminRazorpay((p) => ({ ...p, accountName: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: 'var(--r-md)',
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-2)',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Lock size={16} color="var(--green-deep)" />
+                  <div>
+                    <strong style={{ fontSize: '0.88rem' }}>Environment Mode</strong>
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--muted)' }}>
+                      Test Mode lets users test checkout with simulated UPI/cards; Live Mode charges real INR.
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
+                    <input
+                      type="radio"
+                      name="adminRzpMode"
+                      checked={adminRazorpay.isTestMode === true}
+                      onChange={() => setAdminRazorpay((p) => ({ ...p, isTestMode: true }))}
+                    />
+                    <span>Test Mode (rzp_test)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
+                    <input
+                      type="radio"
+                      name="adminRzpMode"
+                      checked={adminRazorpay.isTestMode === false}
+                      onChange={() => setAdminRazorpay((p) => ({ ...p, isTestMode: false }))}
+                    />
+                    <span>Live Mode (rzp_live)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={savingAdminRzp}
+                  style={{ gap: 8 }}
+                >
+                  <ShieldCheck size={16} />
+                  {savingAdminRzp ? 'Saving Gateway Settings...' : 'Save Platform Razorpay Settings'}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          {/* User Access & Roles Table */}
+          <section className="panel-card">
+            <div className="panel-head">
+              <div>
+                <h3>Global User Access, Roles &amp; Account Settings ({users.length})</h3>
+                <p>
+                  Configure user permissions, toggle active/suspended status, grant Super Admin access,
+                  or open full account &amp; password settings.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={openCreateUserModal}
+              >
+                <Plus size={15} /> Add New User
+              </button>
+            </div>
+            <div className="data-table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Business Workspace</th>
+                    <th>Workspace Role</th>
+                    <th>Account Status</th>
+                    <th>Super Admin Access</th>
+                    <th style={{ textAlign: 'right' }}>Configure</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <div style={{ fontWeight: 700 }}>{u.name}</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>{u.email}</div>
+                      </td>
+                      <td>{u.business?.name || '—'}</td>
+                      <td>
+                        <span className="badge" style={{ textTransform: 'capitalize' }}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td>
+                        {u.isActive ? (
+                          <span className="badge badge-green">Active</span>
+                        ) : (
+                          <span className="badge badge-coral">Suspended</span>
+                        )}
+                      </td>
+                      <td>
+                        {u.isSuperAdmin ? (
+                          <span className="badge badge-purple">
+                            <Crown size={11} /> Super Admin
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                            Standard User
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: 8 }}>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => openEditUserModal(u)}
+                          >
+                            <Settings2 size={14} /> Edit Settings &amp; Plan
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: u.isActive ? 'var(--danger)' : 'var(--green-deep)' }}
+                            onClick={() => handleQuickToggleUserActive(u)}
+                          >
+                            {u.isActive ? 'Suspend' : 'Activate'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
       )}
 
       {/* ==================== TAB 1: USERS & WORKSPACES LIST ==================== */}

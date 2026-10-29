@@ -240,4 +240,19 @@ router.patch(
   adminCtrl.updateAdminSubscription
 );
 
+// Admin Platform Settings (Payment Gateway Razorpay)
+router.get(
+  '/admin/settings/payment-gateway',
+  requireAuth,
+  requireSuperAdmin,
+  adminCtrl.getAdminPaymentGateway
+);
+router.post(
+  '/admin/settings/payment-gateway',
+  requireAuth,
+  requireSuperAdmin,
+  validateBody(adminCtrl.adminPaymentGatewaySchema),
+  adminCtrl.updateAdminPaymentGateway
+);
+
 module.exports = router;

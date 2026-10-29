@@ -51,21 +51,6 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
-  // Razorpay Gateway State
-  const [razorpay, setRazorpay] = useState({
-    keyId: '',
-    keySecret: '',
-    webhookSecret: '',
-    isTestMode: true,
-    accountName: 'Razorpay Business Gateway',
-    configured: false,
-    hasSecret: false,
-    status: 'not_configured',
-  });
-  const [showSecret, setShowSecret] = useState(false);
-  const [savingRazorpay, setSavingRazorpay] = useState(false);
-  const [razorpayFeedback, setRazorpayFeedback] = useState(null);
-
   useEffect(() => {
     api
       .get('/businesses/current')
@@ -82,24 +67,6 @@ export default function SettingsPage() {
           if (b.businessHours && typeof b.businessHours === 'object') {
             setHours((prev) => ({ ...prev, ...b.businessHours }));
           }
-        }
-      })
-      .catch(() => {});
-
-    api
-      .get('/settings/payment-gateway')
-      .then((res) => {
-        const d = res?.data || res;
-        if (d) {
-          setRazorpay((p) => ({
-            ...p,
-            keyId: d.keyId || '',
-            isTestMode: d.isTestMode !== undefined ? d.isTestMode : true,
-            accountName: d.accountName || 'Razorpay Business Gateway',
-            configured: Boolean(d.configured),
-            hasSecret: Boolean(d.hasSecret),
-            status: d.status || 'not_configured',
-          }));
         }
       })
       .catch(() => {});
@@ -130,44 +97,6 @@ export default function SettingsPage() {
       }
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleSaveRazorpay = async (e) => {
-    e.preventDefault();
-    if (!razorpay.keyId.trim()) {
-      setRazorpayFeedback({ type: 'error', message: 'Razorpay Key ID is required.' });
-      return;
-    }
-    setSavingRazorpay(true);
-    setRazorpayFeedback(null);
-    try {
-      const res = await api.post('/settings/payment-gateway', {
-        keyId: razorpay.keyId.trim(),
-        keySecret: razorpay.keySecret.trim() || undefined,
-        webhookSecret: razorpay.webhookSecret.trim() || undefined,
-        isTestMode: razorpay.isTestMode,
-        accountName: razorpay.accountName.trim() || undefined,
-      });
-      const data = res?.data || res;
-      setRazorpay((p) => ({
-        ...p,
-        configured: true,
-        hasSecret: true,
-        status: 'configured',
-        keySecret: '', // Clear secret from form memory after encrypted store
-      }));
-      setRazorpayFeedback({
-        type: 'success',
-        message: 'Razorpay API credentials encrypted with AES-256-GCM and saved successfully!',
-      });
-    } catch (err) {
-      setRazorpayFeedback({
-        type: 'error',
-        message: err?.message || 'Could not save Razorpay details.',
-      });
-    } finally {
-      setSavingRazorpay(false);
     }
   };
 
@@ -426,7 +355,7 @@ export default function SettingsPage() {
         </section>
       </form>
 
-      {/* Razorpay Payment Gateway Configuration Card */}
+      {/* Platform Payment Gateway (Managed by Admin) */}
       <section className="panel-card" style={{ marginTop: 20 }}>
         <div className="panel-head">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -448,192 +377,51 @@ export default function SettingsPage() {
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <h3 style={{ margin: 0 }}>Razorpay Payment Gateway Details</h3>
-                {razorpay.configured ? (
-                  <span className="badge badge-green">
-                    <CheckCircle2 size={12} /> Configured
-                  </span>
-                ) : (
-                  <span className="badge">Not Configured</span>
-                )}
-                {razorpay.isTestMode ? (
-                  <span className="badge badge-purple">Test Mode Active</span>
-                ) : (
-                  <span className="badge badge-green">Live Production</span>
-                )}
+                <h3 style={{ margin: 0 }}>Platform Payment Gateway (Razorpay)</h3>
+                <span className="badge badge-green">
+                  <CheckCircle2 size={12} /> Managed by Platform Admin
+                </span>
               </div>
               <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--muted)' }}>
-                Add your Razorpay Key ID and Key Secret to collect subscription payments and customer
-                checkout directly in INR.
+                Subscription payments and plan upgrades in your Billing section are processed securely
+                via the platform’s Razorpay gateway.
               </p>
             </div>
           </div>
-
-          <a
-            href="https://dashboard.razorpay.com/app/keys"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-outline btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <span>Razorpay Dashboard</span>
-            <ExternalLink size={13} />
-          </a>
         </div>
 
-        {razorpayFeedback && (
-          <div
-            className={`alert ${
-              razorpayFeedback.type === 'success' ? 'alert-success' : 'alert-error'
-            }`}
-            role="status"
-            style={{ margin: '14px 20px 0 20px' }}
-          >
-            {razorpayFeedback.type === 'success' ? <CheckCircle2 /> : <AlertCircle />}
-            <span>{razorpayFeedback.message}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSaveRazorpay} className="panel-body" style={{ display: 'grid', gap: 16 }}>
-          <div className="dash-grid-equal" style={{ gap: 16 }}>
-            <div className="field">
-              <label className="label" htmlFor="rzp-key-id">
-                Razorpay Key ID *
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  id="rzp-key-id"
-                  type="text"
-                  className="input"
-                  placeholder="rzp_test_... or rzp_live_..."
-                  value={razorpay.keyId}
-                  onChange={(e) => setRazorpay((p) => ({ ...p, keyId: e.target.value }))}
-                  required
-                />
-              </div>
-              <span className="field-hint">
-                Found in Razorpay Dashboard → Settings → API Keys.
-              </span>
-            </div>
-
-            <div className="field">
-              <label className="label" htmlFor="rzp-key-secret">
-                Razorpay Key Secret {razorpay.hasSecret ? '(Leave blank to keep existing)' : '*'}
-              </label>
-              <div className="password-input-wrap">
-                <input
-                  id="rzp-key-secret"
-                  type={showSecret ? 'text' : 'password'}
-                  className="input"
-                  placeholder={razorpay.hasSecret ? '••••••••••••••••' : 'Enter Razorpay Key Secret'}
-                  value={razorpay.keySecret}
-                  onChange={(e) => setRazorpay((p) => ({ ...p, keySecret: e.target.value }))}
-                />
-                <button
-                  type="button"
-                  className="password-toggle-btn"
-                  onClick={() => setShowSecret((v) => !v)}
-                  aria-label={showSecret ? 'Hide key secret' : 'Show key secret'}
-                >
-                  {showSecret ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              <span className="field-hint">
-                Stored with AES-256-GCM encryption on the server. Never shared publicly.
-              </span>
-            </div>
-          </div>
-
-          <div className="dash-grid-equal" style={{ gap: 16 }}>
-            <div className="field">
-              <label className="label" htmlFor="rzp-webhook-secret">
-                Webhook Secret (Optional)
-              </label>
-              <input
-                id="rzp-webhook-secret"
-                type="password"
-                className="input"
-                placeholder="Webhook secret for payment verification"
-                value={razorpay.webhookSecret}
-                onChange={(e) => setRazorpay((p) => ({ ...p, webhookSecret: e.target.value }))}
-              />
-              <span className="field-hint">
-                Used to verify server-side webhook signatures for automated subscription renewals.
-              </span>
-            </div>
-
-            <div className="field">
-              <label className="label" htmlFor="rzp-account-name">
-                Gateway Display Label
-              </label>
-              <input
-                id="rzp-account-name"
-                type="text"
-                className="input"
-                placeholder="e.g. Ananya Studio Razorpay"
-                value={razorpay.accountName}
-                onChange={(e) => setRazorpay((p) => ({ ...p, accountName: e.target.value }))}
-              />
-            </div>
-          </div>
-
+        <div className="panel-body">
           <div
             style={{
+              padding: '14px 18px',
+              borderRadius: 'var(--r-md)',
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '12px 16px',
-              borderRadius: 'var(--r-md)',
-              border: '1px solid var(--border)',
-              background: 'var(--surface-2)',
               flexWrap: 'wrap',
               gap: 12,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Lock size={16} color="var(--green-deep)" />
+              <ShieldCheck size={18} color="var(--green-deep)" />
               <div>
-                <strong style={{ fontSize: '0.88rem' }}>Environment Mode</strong>
+                <strong style={{ fontSize: '0.88rem' }}>Direct Checkout Ready</strong>
                 <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--muted)' }}>
-                  Toggle between Razorpay Test Mode (simulate transactions) and Live Production mode.
+                  You can pay and upgrade directly in your{' '}
+                  <a href="/user/billing" style={{ fontWeight: 700, color: 'var(--green-deep)' }}>
+                    Billing &amp; Usage
+                  </a>{' '}
+                  section using UPI (GPay, PhonePe, Paytm), Debit/Credit Cards, or NetBanking.
                 </p>
               </div>
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
-                <input
-                  type="radio"
-                  name="rzpMode"
-                  checked={razorpay.isTestMode === true}
-                  onChange={() => setRazorpay((p) => ({ ...p, isTestMode: true }))}
-                />
-                <span>Test Mode (rzp_test)</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
-                <input
-                  type="radio"
-                  name="rzpMode"
-                  checked={razorpay.isTestMode === false}
-                  onChange={() => setRazorpay((p) => ({ ...p, isTestMode: false }))}
-                />
-                <span>Live Mode (rzp_live)</span>
-              </label>
-            </div>
+            <a href="/user/billing" className="btn btn-outline btn-sm">
+              Go to Billing &amp; Plans →
+            </a>
           </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm"
-              disabled={savingRazorpay}
-              style={{ gap: 8 }}
-            >
-              <ShieldCheck size={16} />
-              {savingRazorpay ? 'Saving Credentials...' : 'Save Razorpay Details'}
-            </button>
-          </div>
-        </form>
+        </div>
       </section>
     </>
   );

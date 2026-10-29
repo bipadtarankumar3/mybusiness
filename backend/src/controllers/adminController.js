@@ -79,6 +79,14 @@ const updateSubscriptionSchema = z.object({
   billingCycle: z.enum(['monthly', 'yearly']).optional(),
 });
 
+const adminPaymentGatewaySchema = z.object({
+  keyId: z.string().trim().min(5, 'Razorpay Key ID is required'),
+  keySecret: z.string().trim().optional(),
+  webhookSecret: z.string().trim().optional(),
+  isTestMode: z.boolean().default(true),
+  accountName: z.string().trim().max(100).optional(),
+});
+
 /**
  * GET /api/v1/admin/overview
  * Global platform metrics across all tenants, users, subscriptions, and plans.
@@ -843,12 +851,105 @@ async function updateAdminSubscription(req, res, next) {
   }
 }
 
+/**
+ * GET /api/v1/admin/settings/payment-gateway
+ * Retrieves platform-wide Razorpay payment gateway credentials for Super Admin.
+ */
+async function getAdminPaymentGateway(req, res, next) {
+  try {
+    const { getEnv } = require('../config/env');
+    const env = getEnv();
+
+    let integration = await models.BusinessIntegration.findOne({
+      where: { provider: 'platform_razorpay' },
+    });
+    if (!integration) {
+      integration = await models.BusinessIntegration.findOne({
+        where: { provider: 'razorpay' },
+      });
+    }
+
+    const creds = integration ? integration.getCredentials() || {} : {};
+    const effectiveKeyId = creds.keyId || env.RAZORPAY_KEY_ID || '';
+
+    return sendSuccess(res, {
+      configured: Boolean(effectiveKeyId),
+      provider: 'razorpay',
+      isTestMode: creds.isTestMode !== undefined ? creds.isTestMode : true,
+      accountName: creds.accountName || 'ChatFlow Platform Razorpay Gateway',
+      keyId: effectiveKeyId,
+      keyIdMasked: effectiveKeyId
+        ? `${effectiveKeyId.slice(0, 8)}...${effectiveKeyId.slice(-4)}`
+        : null,
+      hasSecret: Boolean(creds.keySecret || env.RAZORPAY_KEY_SECRET),
+      hasWebhookSecret: Boolean(creds.webhookSecret || env.RAZORPAY_WEBHOOK_SECRET),
+      status: integration?.status || (effectiveKeyId ? 'configured' : 'not_configured'),
+      updatedAt: integration?.updatedAt || null,
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * POST /api/v1/admin/settings/payment-gateway
+ * Saves platform-wide Razorpay credentials for Super Admin.
+ */
+async function updateAdminPaymentGateway(req, res, next) {
+  try {
+    const { keyId, keySecret, webhookSecret, isTestMode, accountName } = req.body;
+
+    const firstBiz = await models.Business.findOne({ order: [['id', 'ASC']] });
+    const targetBusinessId = req.ctx.businessId || (firstBiz ? firstBiz.id : 1);
+
+    let [integration] = await models.BusinessIntegration.findOrCreate({
+      where: { provider: 'platform_razorpay' },
+      defaults: {
+        businessId: targetBusinessId,
+        provider: 'platform_razorpay',
+        status: 'configured',
+      },
+    });
+
+    const existingCreds = integration.getCredentials() || {};
+    const newCreds = {
+      keyId: keyId.trim(),
+      keySecret: keySecret ? keySecret.trim() : existingCreds.keySecret || '',
+      webhookSecret: webhookSecret ? webhookSecret.trim() : existingCreds.webhookSecret || '',
+      isTestMode: Boolean(isTestMode),
+      accountName:
+        accountName ? accountName.trim() : existingCreds.accountName || 'ChatFlow Platform Razorpay Gateway',
+    };
+
+    integration.setCredentials(newCreds);
+    integration.status = 'configured';
+    integration.externalAccountId = newCreds.keyId;
+    await integration.save();
+
+    return sendSuccess(res, {
+      configured: true,
+      provider: 'razorpay',
+      isTestMode: newCreds.isTestMode,
+      accountName: newCreds.accountName,
+      keyId: newCreds.keyId,
+      keyIdMasked: `${newCreds.keyId.slice(0, 8)}...${newCreds.keyId.slice(-4)}`,
+      hasSecret: Boolean(newCreds.keySecret),
+      hasWebhookSecret: Boolean(newCreds.webhookSecret),
+      status: 'configured',
+      message: 'Platform Razorpay payment gateway credentials updated successfully.',
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   createAdminUserSchema,
   updateAdminUserSchema,
   createPlanSchema,
   updatePlanSchema,
   updateSubscriptionSchema,
+  adminPaymentGatewaySchema,
   getAdminOverview,
   listAdminUsers,
   createAdminUser,
@@ -861,4 +962,6 @@ module.exports = {
   deleteAdminPlan,
   listAdminSubscriptions,
   updateAdminSubscription,
+  getAdminPaymentGateway,
+  updateAdminPaymentGateway,
 };

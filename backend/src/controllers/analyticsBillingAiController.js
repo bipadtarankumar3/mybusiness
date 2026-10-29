@@ -522,10 +522,15 @@ async function createBillingOrder(req, res, next) {
 
     const amountInPaise = Math.round(amountNumber * 100);
 
-    // Check workspace Razorpay integration or env Razorpay
-    const integration = await models.BusinessIntegration.findOne({
-      where: { businessId: req.ctx.businessId, provider: 'razorpay' },
+    // Check Admin platform Razorpay integration first, then workspace integration, then env
+    let integration = await models.BusinessIntegration.findOne({
+      where: { provider: 'platform_razorpay' },
     });
+    if (!integration) {
+      integration = await models.BusinessIntegration.findOne({
+        where: { businessId: req.ctx.businessId, provider: 'razorpay' },
+      });
+    }
     const creds = integration ? integration.getCredentials() || {} : {};
     const keyId = creds.keyId || env.RAZORPAY_KEY_ID || 'rzp_test_chatflow_gateway';
     const keySecret = creds.keySecret || env.RAZORPAY_KEY_SECRET;
@@ -602,9 +607,14 @@ async function verifyBillingPayment(req, res, next) {
     const plan = await models.Plan.findOne({ where: { code: planCode } });
     if (!plan) throw AppError.notFound('Plan not found');
 
-    const integration = await models.BusinessIntegration.findOne({
-      where: { businessId: req.ctx.businessId, provider: 'razorpay' },
+    let integration = await models.BusinessIntegration.findOne({
+      where: { provider: 'platform_razorpay' },
     });
+    if (!integration) {
+      integration = await models.BusinessIntegration.findOne({
+        where: { businessId: req.ctx.businessId, provider: 'razorpay' },
+      });
+    }
     const creds = integration ? integration.getCredentials() || {} : {};
     const keySecret = creds.keySecret || env.RAZORPAY_KEY_SECRET;
 
