@@ -42,7 +42,7 @@ const USER_NAV_GROUPS = [
     label: 'Workspace',
     items: [
       { label: 'Overview', href: '/dashboard', icon: LayoutDashboard, tone: 'tone-green', exact: true },
-      { label: 'Shared Inbox', href: '/dashboard/inbox', icon: Inbox, tone: 'tone-blue', badge: 'Live' },
+      { label: 'Shared Inbox', href: '/dashboard/inbox', icon: Inbox, tone: 'tone-blue' },
       { label: 'Contacts & CRM', href: '/dashboard/contacts', icon: Users, tone: 'tone-purple' },
       { label: 'Follow-ups', href: '/dashboard/follow-ups', icon: BellRing, tone: 'tone-yellow' },
     ],
@@ -68,11 +68,11 @@ const USER_NAV_GROUPS = [
 ];
 
 /**
- * SUPER ADMIN MENU — Completely separate sidebar navigation shown exclusively in the Super Admin Console
+ * SUPER ADMIN MENU — Clean, dedicated sidebar navigation shown exclusively in the Super Admin Console
  */
 const ADMIN_NAV_GROUPS = [
   {
-    label: 'Platform Administration',
+    label: 'Platform Management',
     items: [
       {
         label: 'Platform Overview',
@@ -80,7 +80,6 @@ const ADMIN_NAV_GROUPS = [
         tabKey: 'overview',
         icon: LayoutDashboard,
         tone: 'tone-green',
-        badge: 'Live',
       },
       {
         label: 'Users & Workspaces',
@@ -88,7 +87,6 @@ const ADMIN_NAV_GROUPS = [
         tabKey: 'users',
         icon: Users,
         tone: 'tone-blue',
-        badge: 'Directory',
       },
       {
         label: 'Visit User Dashboard',
@@ -96,12 +94,11 @@ const ADMIN_NAV_GROUPS = [
         tabKey: 'visit',
         icon: Eye,
         tone: 'tone-purple',
-        badge: 'Inspect',
       },
     ],
   },
   {
-    label: 'Plans & Subscriptions',
+    label: 'Plans & Billing',
     items: [
       {
         label: 'Subscription Plans',
@@ -109,7 +106,6 @@ const ADMIN_NAV_GROUPS = [
         tabKey: 'plans',
         icon: Layers,
         tone: 'tone-purple',
-        badge: 'Builder',
       },
       {
         label: 'All Subscriptions',
@@ -121,7 +117,7 @@ const ADMIN_NAV_GROUPS = [
     ],
   },
   {
-    label: 'Access & Governance',
+    label: 'Governance',
     items: [
       {
         label: 'User Access & Settings',
@@ -167,11 +163,10 @@ function SidebarNavGroups({ isAdminMenuMode, pathname, onCloseMobile }) {
                 >
                   <span className="dash-nav-item-left">
                     <span className={`dash-nav-icon-box ${item.tone || 'tone-green'}`}>
-                      <Icon size={17} strokeWidth={2.2} />
+                      <Icon size={16} strokeWidth={2.1} />
                     </span>
                     <span>{item.label}</span>
                   </span>
-                  {item.badge && <span className="dash-nav-badge">{item.badge}</span>}
                 </Link>
               );
             })}
@@ -220,7 +215,7 @@ export default function DashboardShell({ children }) {
       <aside className={`dash-sidebar ${mobileOpen ? 'mobile-open' : ''}`} aria-label="Dashboard navigation">
         <div>
           <div className="dash-sidebar-brand">
-            <Logo href={isAdminMenuMode ? '/dashboard/admin' : '/dashboard'} light size={32} />
+            <Logo href={isAdminMenuMode ? '/dashboard/admin' : '/dashboard'} light size={30} />
             <button
               type="button"
               className="btn btn-ghost btn-sm"
@@ -236,26 +231,17 @@ export default function DashboardShell({ children }) {
             <div
               className="dash-tenant-pill"
               style={{
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(22, 199, 132, 0.14))',
-                borderColor: 'rgba(167, 139, 250, 0.35)',
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(22, 199, 132, 0.1))',
+                borderColor: 'rgba(167, 139, 250, 0.28)',
               }}
             >
               <div className="dash-tenant-info">
                 <div className="dash-tenant-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Crown size={14} style={{ color: '#fde047' }} /> Super Admin Console
+                  <Crown size={14} style={{ color: '#fde047', flexShrink: 0 }} />
+                  <span>Super Admin Console</span>
                 </div>
-                <div className="dash-tenant-meta">
-                  <span>All Workspaces</span>
-                  <span>•</span>
-                  <span>Platform Control</span>
-                </div>
+                <div className="dash-tenant-meta">Platform Control Center</div>
               </div>
-              <span
-                className="badge badge-purple"
-                style={{ fontSize: '0.65rem', padding: '2px 7px', background: '#4c1d95', color: '#ede9fe' }}
-              >
-                Admin
-              </span>
             </div>
           ) : (
             <div className="dash-tenant-pill">
@@ -267,24 +253,12 @@ export default function DashboardShell({ children }) {
                   <span style={{ textTransform: 'capitalize' }}>{role || 'owner'}</span>
                 </div>
               </div>
-              {impersonatedBy ? (
-                <span
-                  className="badge badge-purple"
-                  style={{ fontSize: '0.65rem', padding: '2px 7px', background: '#4c1d95', color: '#ede9fe' }}
-                >
-                  Visiting
-                </span>
-              ) : isDemo ? (
-                <span className="badge badge-demo" style={{ fontSize: '0.66rem', padding: '2px 7px' }}>
-                  Demo
-                </span>
-              ) : null}
             </div>
           )}
 
           {/* If Super Admin is currently visiting a User Workspace, show quick button back to Admin Menu */}
           {!isAdminMenuMode && (isSuperAdmin || impersonatedBy) && (
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginTop: 12 }}>
               <button
                 type="button"
                 onClick={handleReturnToAdmin}
@@ -294,17 +268,17 @@ export default function DashboardShell({ children }) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 8,
-                  padding: '9px 12px',
+                  padding: '8px 12px',
                   borderRadius: 10,
-                  border: '1px solid rgba(167, 139, 250, 0.45)',
-                  background: 'rgba(109, 40, 217, 0.32)',
+                  border: '1px solid rgba(167, 139, 250, 0.4)',
+                  background: 'rgba(109, 40, 217, 0.28)',
                   color: '#f5f3ff',
                   fontSize: '0.8rem',
-                  fontWeight: 700,
+                  fontWeight: 600,
                   cursor: 'pointer',
                 }}
               >
-                <Crown size={15} style={{ color: '#fde047' }} /> ← Return to Super Admin Menu
+                <Crown size={14} style={{ color: '#fde047' }} /> Return to Admin Menu
               </button>
             </div>
           )}
@@ -325,7 +299,7 @@ export default function DashboardShell({ children }) {
               <div style={{ minWidth: 0 }}>
                 <div
                   style={{
-                    fontSize: '0.84rem',
+                    fontSize: '0.82rem',
                     fontWeight: 700,
                     color: '#fff',
                     whiteSpace: 'nowrap',
@@ -338,7 +312,7 @@ export default function DashboardShell({ children }) {
                 <div
                   style={{
                     fontSize: '0.72rem',
-                    color: 'rgba(255,255,255,0.58)',
+                    color: 'rgba(255,255,255,0.56)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -360,9 +334,10 @@ export default function DashboardShell({ children }) {
                 padding: 8,
                 borderRadius: 8,
                 display: 'inline-flex',
+                flexShrink: 0,
               }}
             >
-              <LogOut size={16} />
+              <LogOut size={15} />
             </button>
           </div>
         </div>
@@ -407,7 +382,15 @@ export default function DashboardShell({ children }) {
 
             {isAdminMenuMode ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 800, fontSize: '1.05rem', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{
+                    fontWeight: 800,
+                    fontSize: '1.05rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
                   <ShieldCheck size={18} style={{ color: '#7c3aed' }} /> ChatFlow Super Admin Portal
                 </span>
                 <span className="badge badge-purple">Global Platform Admin</span>
