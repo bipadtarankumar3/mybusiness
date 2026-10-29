@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import AuthShell from '@/components/auth/AuthShell';
 import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
+import FacebookAuthButton from '@/components/auth/FacebookAuthButton';
 import { useAuth } from '@/hooks/useAuth';
 import { applyServerErrors, ApiError } from '@/lib/api';
 import { AlertCircle, Eye, EyeOff, FlaskConical, LogIn, Sparkles } from 'lucide-react';
@@ -239,6 +240,7 @@ function LoginFormInner() {
         </div>
 
         <GoogleAuthButton redirectTo={nextUrl} label="Continue with Google" />
+        <FacebookAuthButton redirectTo={nextUrl} label="Continue with Facebook" />
       </form>
     </>
   );

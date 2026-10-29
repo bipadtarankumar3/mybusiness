@@ -13,6 +13,7 @@ module.exports = {
         email: { type: Sequelize.STRING(191), allowNull: false },
         password_hash: { type: Sequelize.STRING(255), allowNull: true },
         google_id: { type: Sequelize.STRING(191), allowNull: true },
+        facebook_id: { type: Sequelize.STRING(191), allowNull: true },
         avatar_url: { type: Sequelize.STRING(500), allowNull: true },
         is_super_admin: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
         is_active: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true },
@@ -24,6 +25,7 @@ module.exports = {
     );
     await queryInterface.addIndex('users', ['email'], { unique: true, name: 'users_email_uq' });
     await queryInterface.addIndex('users', ['google_id'], { unique: true, name: 'users_google_id_uq' });
+    await queryInterface.addIndex('users', ['facebook_id'], { unique: true, name: 'users_facebook_id_uq' });
   },
   async down(queryInterface) {
     await queryInterface.dropTable('users');

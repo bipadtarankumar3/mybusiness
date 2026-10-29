@@ -168,6 +168,16 @@ export function AuthProvider({ children }) {
     [refreshAuth]
   );
 
+  const loginWithFacebook = useCallback(
+    async (payload) => {
+      clearOfflineDemoCookie();
+      const res = await api.post('/auth/facebook', payload);
+      await refreshAuth();
+      return res?.data || res;
+    },
+    [refreshAuth]
+  );
+
   const logout = useCallback(async () => {
     clearOfflineDemoCookie();
     try {
@@ -254,6 +264,7 @@ export function AuthProvider({ children }) {
       refreshAuth,
       login,
       loginWithGoogle,
+      loginWithFacebook,
       loginOfflineDemo,
       loginOfflineAdmin,
       register,
@@ -267,6 +278,7 @@ export function AuthProvider({ children }) {
       refreshAuth,
       login,
       loginWithGoogle,
+      loginWithFacebook,
       loginOfflineDemo,
       loginOfflineAdmin,
       register,

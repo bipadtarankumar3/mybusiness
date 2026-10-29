@@ -41,6 +41,15 @@ const googleLoginSchema = z.object({
   businessName: z.string().trim().max(150).optional(),
 });
 
+const facebookLoginSchema = z.object({
+  accessToken: z.string().trim().optional(),
+  email: z.string().trim().email().optional(),
+  name: z.string().trim().min(1).max(120).optional(),
+  facebookId: z.string().trim().optional(),
+  picture: z.string().trim().optional(),
+  businessName: z.string().trim().max(150).optional(),
+});
+
 function slugify(str) {
   return String(str)
     .toLowerCase()
@@ -620,9 +629,285 @@ async function googleCallback(req, res) {
     const { user, business } = await findOrCreateGoogleUser(profile);
     const sessionToken = signSessionToken({ userId: user.id, businessId: business.id });
     setSessionCookie(res, sessionToken);
-    return res.redirect(`${frontendBase}/dashboard`);
+    return res.redirect(`${frontendBase}/user/dashboard`);
   } catch {
     return res.redirect(`${frontendBase}/login?error=google_login_failed`);
+  }
+}
+
+/**
+ * Helper: Find an existing user by facebookId or email, or create a new user + workspace
+ * if the user does not exist yet.
+ */
+async function findOrCreateFacebookUser({ facebookId, email, name, avatarUrl, businessName }) {
+  const normalizedEmail = email ? String(email).trim().toLowerCase() : null;
+
+  let freePlan = await models.Plan.findOne({ where: { code: 'free' } });
+  if (!freePlan) {
+    await seedPlans(models);
+    freePlan = await models.Plan.findOne({ where: { code: 'free' } });
+  }
+
+  let user = null;
+  if (facebookId) {
+    user = await models.User.findOne({ where: { facebookId: String(facebookId) } });
+  }
+  if (!user && normalizedEmail) {
+    user = await models.User.findOne({ where: { email: normalizedEmail } });
+  }
+
+  let isNewUser = false;
+
+  if (!user) {
+    isNewUser = true;
+    const resolvedEmail =
+      normalizedEmail || `fb_${facebookId || crypto.randomBytes(6).toString('hex')}@facebook.local`;
+    const displayName = (name && String(name).trim()) || resolvedEmail.split('@')[0];
+    const wsName =
+      (businessName && String(businessName).trim()) || `${displayName}'s Business`;
+    const baseSlug = slugify(wsName) || 'workspace';
+    const uniqueSlug = `${baseSlug}-${crypto.randomBytes(3).toString('hex')}`;
+    const randomPasswordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+
+    await models.sequelize.transaction(async (transaction) => {
+      user = await models.User.create(
+        {
+          name: displayName.slice(0, 120),
+          email: resolvedEmail,
+          passwordHash: randomPasswordHash,
+          facebookId: facebookId ? String(facebookId) : null,
+          avatarUrl: avatarUrl || null,
+          isActive: true,
+          emailVerifiedAt: new Date(),
+          lastLoginAt: new Date(),
+        },
+        { transaction }
+      );
+
+      const business = await models.Business.create(
+        {
+          name: wsName.slice(0, 150),
+          slug: uniqueSlug,
+          timezone: 'Asia/Kolkata',
+          isDemo: false,
+        },
+        { transaction }
+      );
+
+      await models.BusinessMember.create(
+        {
+          businessId: business.id,
+          userId: user.id,
+          role: 'owner',
+          status: 'active',
+        },
+        { transaction }
+      );
+
+      const now = new Date();
+      const periodEnd = new Date(now.getTime() + 30 * 24 * 3600 * 1000);
+      await models.Subscription.create(
+        {
+          businessId: business.id,
+          planId: freePlan.id,
+          status: 'active',
+          billingCycle: 'monthly',
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+        },
+        { transaction }
+      );
+
+      await models.BusinessIntegration.create(
+        {
+          businessId: business.id,
+          provider: 'whatsapp_cloud',
+          status: 'not_configured',
+        },
+        { transaction }
+      );
+    });
+  } else {
+    if (!user.isActive) {
+      throw AppError.forbidden('This user account has been deactivated');
+    }
+    const updates = { lastLoginAt: new Date() };
+    if (facebookId && !user.facebookId) updates.facebookId = String(facebookId);
+    if (avatarUrl && !user.avatarUrl) updates.avatarUrl = avatarUrl;
+    if (!user.emailVerifiedAt) updates.emailVerifiedAt = new Date();
+    await user.update(updates);
+  }
+
+  // Ensure user has an active workspace membership (create one if missing)
+  let member = await models.BusinessMember.findOne({
+    where: { userId: user.id, status: 'active' },
+    include: [
+      {
+        model: models.Business,
+        as: 'business',
+        include: [
+          {
+            model: models.Subscription,
+            as: 'subscription',
+            include: [{ model: models.Plan, as: 'plan' }],
+          },
+        ],
+      },
+    ],
+  });
+
+  if (!member || !member.business) {
+    const wsName = `${user.name}'s Business`;
+    const uniqueSlug = `${slugify(wsName) || 'workspace'}-${crypto.randomBytes(3).toString('hex')}`;
+    const business = await models.Business.create({
+      name: wsName,
+      slug: uniqueSlug,
+      timezone: 'Asia/Kolkata',
+      isDemo: false,
+    });
+    member = await models.BusinessMember.create({
+      businessId: business.id,
+      userId: user.id,
+      role: 'owner',
+      status: 'active',
+    });
+    const now = new Date();
+    await models.Subscription.create({
+      businessId: business.id,
+      planId: freePlan.id,
+      status: 'active',
+      billingCycle: 'monthly',
+      currentPeriodStart: now,
+      currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 3600 * 1000),
+    });
+    member.business = business;
+  }
+
+  const plan = member.business.subscription?.plan || freePlan;
+  return { user, business: member.business, role: member.role, plan, isNewUser };
+}
+
+/**
+ * Resolve Facebook profile via Graph API or simulated development fallback.
+ */
+async function resolveFacebookProfile({ accessToken, email, name, facebookId, picture }) {
+  const env = getEnv();
+
+  if (accessToken) {
+    const resp = await fetch(
+      `https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${encodeURIComponent(
+        accessToken
+      )}`
+    );
+    if (!resp.ok) {
+      throw AppError.unauthenticated('Invalid Facebook access token');
+    }
+    const payload = await resp.json();
+    return {
+      facebookId: payload.id,
+      email: payload.email || `${payload.id}@facebook.local`,
+      name: payload.name || `User ${payload.id}`,
+      avatarUrl: payload.picture?.data?.url || null,
+    };
+  }
+
+  if (!env.isProduction && (email || facebookId)) {
+    const safeFbId = facebookId || `fb-dev-${(email || 'user').replace(/[^a-zA-Z0-9]/g, '')}`;
+    const safeEmail = email ? email.trim().toLowerCase() : `${safeFbId}@facebook.local`;
+    return {
+      facebookId: safeFbId,
+      email: safeEmail,
+      name: name || safeEmail.split('@')[0],
+      avatarUrl: picture || null,
+    };
+  }
+
+  throw AppError.validation('Facebook accessToken (or test email/facebookId) is required');
+}
+
+/**
+ * POST /api/v1/auth/facebook
+ * Signs in with Facebook, automatically creating a new User + Business workspace if not existing.
+ */
+async function facebookLogin(req, res, next) {
+  try {
+    const profile = await resolveFacebookProfile(req.body);
+    const { user, business, role, plan, isNewUser } = await findOrCreateFacebookUser({
+      ...profile,
+      businessName: req.body.businessName,
+    });
+
+    const token = signSessionToken({ userId: user.id, businessId: business.id });
+    setSessionCookie(res, token);
+
+    return sendSuccess(
+      res,
+      {
+        ...formatSessionResponse({ user, business, role, plan }),
+        isNewUser,
+      },
+      isNewUser ? 201 : 200
+    );
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * GET /api/v1/auth/facebook
+ * Redirects to Facebook OAuth dialog if configured, or development fallback.
+ */
+function facebookRedirect(req, res) {
+  const env = getEnv();
+  const frontendBase = env.frontendOrigins[0] || 'http://localhost:3000';
+  if (!env.FACEBOOK_APP_ID || !env.FACEBOOK_APP_SECRET) {
+    return res.redirect(`${frontendBase}/login?facebook=dev`);
+  }
+  const callbackUrl =
+    env.FACEBOOK_CALLBACK_URL || `http://localhost:${env.PORT}/api/v1/auth/facebook/callback`;
+  const params = new URLSearchParams({
+    client_id: env.FACEBOOK_APP_ID,
+    redirect_uri: callbackUrl,
+    response_type: 'code',
+    scope: 'email,public_profile',
+  });
+  return res.redirect(`https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`);
+}
+
+/**
+ * GET /api/v1/auth/facebook/callback
+ * Exchanges OAuth code for access token, finds/creates user, sets session cookie, redirects.
+ */
+async function facebookCallback(req, res) {
+  const env = getEnv();
+  const frontendBase = env.frontendOrigins[0] || 'http://localhost:3000';
+  try {
+    const code = req.query.code;
+    if (!code || !env.FACEBOOK_APP_ID || !env.FACEBOOK_APP_SECRET) {
+      return res.redirect(`${frontendBase}/login?error=facebook_oauth_failed`);
+    }
+    const callbackUrl =
+      env.FACEBOOK_CALLBACK_URL || `http://localhost:${env.PORT}/api/v1/auth/facebook/callback`;
+    const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${
+      env.FACEBOOK_APP_ID
+    }&redirect_uri=${encodeURIComponent(callbackUrl)}&client_secret=${
+      env.FACEBOOK_APP_SECRET
+    }&code=${encodeURIComponent(code)}`;
+
+    const tokenResp = await fetch(tokenUrl);
+    if (!tokenResp.ok) {
+      return res.redirect(`${frontendBase}/login?error=facebook_token_exchange_failed`);
+    }
+    const tokenData = await tokenResp.json();
+    const profile = await resolveFacebookProfile({
+      accessToken: tokenData.access_token,
+    });
+    const { user, business } = await findOrCreateFacebookUser(profile);
+    const sessionToken = signSessionToken({ userId: user.id, businessId: business.id });
+    setSessionCookie(res, sessionToken);
+    return res.redirect(`${frontendBase}/user/dashboard`);
+  } catch {
+    return res.redirect(`${frontendBase}/login?error=facebook_login_failed`);
   }
 }
 
@@ -632,12 +917,16 @@ module.exports = {
   forgotPasswordSchema,
   resetPasswordSchema,
   googleLoginSchema,
+  facebookLoginSchema,
   hashResetToken,
   register,
   login,
   googleLogin,
   googleRedirect,
   googleCallback,
+  facebookLogin,
+  facebookRedirect,
+  facebookCallback,
   logout,
   forgotPassword,
   resetPassword,

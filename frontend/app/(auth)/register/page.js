@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import AuthShell from '@/components/auth/AuthShell';
 import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
+import FacebookAuthButton from '@/components/auth/FacebookAuthButton';
 import { useAuth } from '@/hooks/useAuth';
 import { applyServerErrors, ApiError } from '@/lib/api';
 import { AlertCircle, Eye, EyeOff, FlaskConical, UserPlus } from 'lucide-react';
@@ -197,11 +198,12 @@ function RegisterFormInner() {
           }}
         >
           <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          <span>OR SIGN UP WITH GOOGLE</span>
+          <span>OR SIGN UP WITH</span>
           <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         </div>
 
         <GoogleAuthButton redirectTo="/user/dashboard" label="Sign up with Google" />
+        <FacebookAuthButton redirectTo="/user/dashboard" label="Sign up with Facebook" />
       </form>
     </>
   );

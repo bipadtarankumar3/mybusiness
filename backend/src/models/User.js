@@ -30,6 +30,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       passwordHash: { type: DataTypes.STRING(255), allowNull: true },
       googleId: { type: DataTypes.STRING(191), allowNull: true },
+      facebookId: { type: DataTypes.STRING(191), allowNull: true },
       avatarUrl: { type: DataTypes.STRING(500), allowNull: true },
       isSuperAdmin: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
       isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
@@ -45,6 +46,7 @@ module.exports = (sequelize, DataTypes) => {
       indexes: [
         { unique: true, fields: ['email'], name: 'users_email_uq' },
         { unique: true, fields: ['google_id'], name: 'users_google_id_uq' },
+        { unique: true, fields: ['facebook_id'], name: 'users_facebook_id_uq' },
       ],
     }
   );

@@ -43,6 +43,9 @@ router.post('/auth/login', loginRateLimiter, validateBody(authCtrl.loginSchema),
 router.post('/auth/google', loginRateLimiter, validateBody(authCtrl.googleLoginSchema), authCtrl.googleLogin);
 router.get('/auth/google', authCtrl.googleRedirect);
 router.get('/auth/google/callback', authCtrl.googleCallback);
+router.post('/auth/facebook', loginRateLimiter, validateBody(authCtrl.facebookLoginSchema), authCtrl.facebookLogin);
+router.get('/auth/facebook', authCtrl.facebookRedirect);
+router.get('/auth/facebook/callback', authCtrl.facebookCallback);
 router.post('/auth/logout', authCtrl.logout);
 router.post(
   '/auth/forgot-password',
@@ -144,9 +147,31 @@ router.get('/analytics/overview', requireAuth, analyticsBillingAiCtrl.getAnalyti
 router.get('/analytics/conversations', requireAuth, analyticsBillingAiCtrl.getAnalyticsConversations);
 router.get('/analytics/campaigns', requireAuth, analyticsBillingAiCtrl.getAnalyticsCampaigns);
 
-// Billing
+// Billing & Payments
 router.get('/billing/subscription', requireAuth, analyticsBillingAiCtrl.getSubscription);
 router.get('/billing/usage', requireAuth, analyticsBillingAiCtrl.getUsage);
+router.post(
+  '/billing/create-order',
+  requireAuth,
+  validateBody(analyticsBillingAiCtrl.createBillingOrderSchema),
+  analyticsBillingAiCtrl.createBillingOrder
+);
+router.post(
+  '/billing/verify-payment',
+  requireAuth,
+  validateBody(analyticsBillingAiCtrl.verifyBillingPaymentSchema),
+  analyticsBillingAiCtrl.verifyBillingPayment
+);
+
+// Payment Gateway Settings (Razorpay)
+router.get('/settings/payment-gateway', requireAuth, analyticsBillingAiCtrl.getPaymentGatewayConfig);
+router.post(
+  '/settings/payment-gateway',
+  requireAuth,
+  requireRole('owner', 'admin'),
+  validateBody(analyticsBillingAiCtrl.paymentGatewayConfigSchema),
+  analyticsBillingAiCtrl.updatePaymentGatewayConfig
+);
 
 // AI Assistant
 router.get('/ai/status', requireAuth, analyticsBillingAiCtrl.getAiStatusHandler);

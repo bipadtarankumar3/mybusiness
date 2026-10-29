@@ -624,4 +624,72 @@ describe('ChatFlow Backend API & Integration Suite', () => {
     assert.equal(stopImpRes.body.data.user.email, 'admin@chatflow.local');
     assert.equal(stopImpRes.body.data.impersonatedBy, null);
   });
+
+  test('12. Facebook login, Razorpay settings, and direct billing checkout upgrade', async () => {
+    // 1. Facebook Sign-In creates new user & isolated workspace with free tier plan
+    const fbAgent = request.agent(app);
+    const fbEmail = 'priya.sharma@facebook.test';
+    const fbRes = await fbAgent.post('/api/v1/auth/facebook').send({
+      email: fbEmail,
+      name: 'Priya Sharma',
+      facebookId: 'fb_priya_12345',
+      businessName: 'Priya Ethnic Studio',
+    });
+    assert.equal(fbRes.status, 201);
+    assert.equal(fbRes.body.data.user.email, fbEmail);
+    assert.equal(fbRes.body.data.business.name, 'Priya Ethnic Studio');
+    assert.equal(fbRes.body.data.plan.code, 'free');
+    assert.equal(fbRes.body.data.isNewUser, true);
+
+    // 2. Existing Facebook Sign-In logs user in immediately
+    const fbLoginRes = await fbAgent.post('/api/v1/auth/facebook').send({
+      email: fbEmail,
+      facebookId: 'fb_priya_12345',
+    });
+    assert.equal(fbLoginRes.status, 200);
+    assert.equal(fbLoginRes.body.data.isNewUser, false);
+
+    // 3. Configure Razorpay Payment Gateway details in Settings
+    const getGatewayInitial = await fbAgent.get('/api/v1/settings/payment-gateway');
+    assert.equal(getGatewayInitial.status, 200);
+
+    const saveGatewayRes = await fbAgent.post('/api/v1/settings/payment-gateway').send({
+      keyId: 'rzp_test_5678abcdef9012',
+      keySecret: 'secret_key_testing_123456',
+      webhookSecret: 'whsec_testing_789',
+      isTestMode: true,
+      accountName: 'Priya Ethnic Store Gateway',
+    });
+    assert.equal(saveGatewayRes.status, 200);
+    assert.equal(saveGatewayRes.body.data.configured, true);
+    assert.equal(saveGatewayRes.body.data.isTestMode, true);
+    assert.equal(saveGatewayRes.body.data.keyId, 'rzp_test_5678abcdef9012');
+
+    // 4. Create direct checkout order for Starter plan
+    const orderRes = await fbAgent.post('/api/v1/billing/create-order').send({
+      planCode: 'starter',
+      billingCycle: 'monthly',
+    });
+    assert.equal(orderRes.status, 200);
+    assert.ok(orderRes.body.data.orderId);
+    assert.equal(orderRes.body.data.currency, 'INR');
+    assert.equal(orderRes.body.data.plan.code, 'starter');
+
+    // 5. Complete payment verification and upgrade subscription
+    const verifyRes = await fbAgent.post('/api/v1/billing/verify-payment').send({
+      planCode: 'starter',
+      billingCycle: 'monthly',
+      razorpayOrderId: orderRes.body.data.orderId,
+      razorpayPaymentId: 'pay_test_priya_9999',
+    });
+    assert.equal(verifyRes.status, 200);
+    assert.equal(verifyRes.body.data.success, true);
+    assert.equal(verifyRes.body.data.subscription.plan.code, 'starter');
+
+    // 6. Verify upgraded subscription state via GET /api/v1/billing/subscription
+    const subRes = await fbAgent.get('/api/v1/billing/subscription');
+    assert.equal(subRes.status, 200);
+    assert.equal(subRes.body.data.plan.code, 'starter');
+    assert.equal(subRes.body.data.status, 'active');
+  });
 });

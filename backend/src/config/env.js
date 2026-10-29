@@ -60,6 +60,14 @@ const schema = z.object({
   GOOGLE_CLIENT_SECRET: optionalString,
   GOOGLE_CALLBACK_URL: optionalString,
 
+  FACEBOOK_APP_ID: optionalString,
+  FACEBOOK_APP_SECRET: optionalString,
+  FACEBOOK_CALLBACK_URL: optionalString,
+
+  RAZORPAY_KEY_ID: optionalString,
+  RAZORPAY_KEY_SECRET: optionalString,
+  RAZORPAY_WEBHOOK_SECRET: optionalString,
+
   DEMO_MODE: z
     .string()
     .optional()
@@ -114,6 +122,8 @@ function loadEnv(source = process.env) {
   env.aiConfigured = Boolean(env.AI_PROVIDER && env.AI_API_KEY);
   env.emailConfigured = Boolean(env.EMAIL_HOST && env.EMAIL_FROM);
   env.googleConfigured = Boolean(env.GOOGLE_CLIENT_ID);
+  env.facebookConfigured = Boolean(env.FACEBOOK_APP_ID);
+  env.razorpayConfigured = Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET);
   env.frontendOrigins = env.FRONTEND_URL.split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
   return env;
 }
