@@ -213,3 +213,4 @@ export default function GoogleAuthButton({ redirectTo = '/dashboard', label = 'C
     </div>
   );
 }
+
