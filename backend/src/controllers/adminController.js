@@ -87,6 +87,20 @@ const adminPaymentGatewaySchema = z.object({
   accountName: z.string().trim().max(100).optional(),
 });
 
+const adminSmtpSchema = z.object({
+  host: z.string().trim().min(1, 'SMTP Host is required'),
+  port: z.coerce.number().int().positive().default(587),
+  secure: z.boolean().default(false),
+  user: z.string().trim().optional(),
+  password: z.string().optional(),
+  fromEmail: z.string().trim().email('Valid From Email is required'),
+  fromName: z.string().trim().max(100).optional(),
+});
+
+const adminSendTestEmailSchema = z.object({
+  toEmail: z.string().trim().email('Valid recipient email address is required'),
+});
+
 /**
  * GET /api/v1/admin/overview
  * Global platform metrics across all tenants, users, subscriptions, and plans.
@@ -943,6 +957,98 @@ async function updateAdminPaymentGateway(req, res, next) {
   }
 }
 
+/**
+ * GET /api/v1/admin/settings/email-smtp
+ * Retrieves platform SMTP configuration for Super Admin.
+ */
+async function getAdminSmtpSettings(req, res, next) {
+  try {
+    const { getEffectiveSmtpConfig } = require('../services/emailService');
+    const cfg = await getEffectiveSmtpConfig();
+    return sendSuccess(res, {
+      configured: cfg.configured,
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.secure,
+      user: cfg.user,
+      hasPassword: cfg.hasPassword,
+      fromEmail: cfg.fromEmail,
+      fromName: cfg.fromName,
+      status: cfg.status,
+      updatedAt: cfg.updatedAt,
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * POST /api/v1/admin/settings/email-smtp
+ * Saves platform SMTP credentials encrypted with AES-256-GCM.
+ */
+async function updateAdminSmtpSettings(req, res, next) {
+  try {
+    const { host, port, secure, user, password, fromEmail, fromName } = req.body;
+
+    const firstBiz = await models.Business.findOne({ order: [['id', 'ASC']] });
+    const targetBusinessId = req.ctx.businessId || (firstBiz ? firstBiz.id : 1);
+
+    let [integration] = await models.BusinessIntegration.findOrCreate({
+      where: { provider: 'platform_smtp' },
+      defaults: {
+        businessId: targetBusinessId,
+        provider: 'platform_smtp',
+        status: 'configured',
+      },
+    });
+
+    const existingCreds = integration.getCredentials() || {};
+    const newCreds = {
+      host: host.trim(),
+      port: Number(port) || 587,
+      secure: Boolean(secure),
+      user: user ? user.trim() : existingCreds.user || '',
+      password: password !== undefined && password !== '' ? password : existingCreds.password || '',
+      fromEmail: fromEmail.trim().toLowerCase(),
+      fromName: fromName ? fromName.trim() : existingCreds.fromName || 'ChatFlow Platform',
+    };
+
+    integration.setCredentials(newCreds);
+    integration.status = 'configured';
+    integration.externalAccountId = newCreds.fromEmail;
+    await integration.save();
+
+    return sendSuccess(res, {
+      configured: true,
+      host: newCreds.host,
+      port: newCreds.port,
+      secure: newCreds.secure,
+      user: newCreds.user,
+      hasPassword: Boolean(newCreds.password),
+      fromEmail: newCreds.fromEmail,
+      fromName: newCreds.fromName,
+      status: 'configured',
+      message: 'Platform email SMTP settings saved securely.',
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * POST /api/v1/admin/settings/email-smtp/test
+ * Dispatches a verification test email using configured SMTP credentials.
+ */
+async function sendAdminTestEmail(req, res, next) {
+  try {
+    const { verifyAndSendTestEmail } = require('../services/emailService');
+    const result = await verifyAndSendTestEmail({ toEmail: req.body.toEmail });
+    return sendSuccess(res, result);
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   createAdminUserSchema,
   updateAdminUserSchema,
@@ -950,6 +1056,8 @@ module.exports = {
   updatePlanSchema,
   updateSubscriptionSchema,
   adminPaymentGatewaySchema,
+  adminSmtpSchema,
+  adminSendTestEmailSchema,
   getAdminOverview,
   listAdminUsers,
   createAdminUser,
@@ -964,4 +1072,7 @@ module.exports = {
   updateAdminSubscription,
   getAdminPaymentGateway,
   updateAdminPaymentGateway,
+  getAdminSmtpSettings,
+  updateAdminSmtpSettings,
+  sendAdminTestEmail,
 };

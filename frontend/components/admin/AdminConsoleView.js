@@ -37,6 +37,9 @@ import {
   ExternalLink,
   EyeOff,
   AlertCircle,
+  Mail,
+  Send,
+  Server,
 } from 'lucide-react';
 
 function AdminConsoleInner({ defaultTab = 'overview' }) {
@@ -97,6 +100,9 @@ function AdminConsoleInner({ defaultTab = 'overview' }) {
   const [savingPlan, setSavingPlan] = useState(false);
   const [deletePlanTarget, setDeletePlanTarget] = useState(null);
 
+  // Admin Settings Sub-tabs: 'razorpay' | 'smtp' | 'users'
+  const [settingsSubTab, setSettingsSubTab] = useState('razorpay');
+
   // Admin Platform Razorpay Gateway Settings
   const [adminRazorpay, setAdminRazorpay] = useState({
     keyId: '',
@@ -112,9 +118,34 @@ function AdminConsoleInner({ defaultTab = 'overview' }) {
   const [savingAdminRzp, setSavingAdminRzp] = useState(false);
   const [rzpFeedback, setRzpFeedback] = useState(null);
 
+  // Admin Platform Email SMTP Settings
+  const [adminSmtp, setAdminSmtp] = useState({
+    host: '',
+    port: '587',
+    secure: false,
+    user: '',
+    password: '',
+    fromEmail: 'notifications@chatflow.local',
+    fromName: 'ChatFlow Platform',
+    configured: false,
+    hasPassword: false,
+    status: 'not_configured',
+  });
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
+  const [savingAdminSmtp, setSavingAdminSmtp] = useState(false);
+  const [smtpFeedback, setSmtpFeedback] = useState(null);
+
+  // Test Email state
+  const [testEmailTo, setTestEmailTo] = useState('admin@chatflow.local');
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState(null);
+
   useEffect(() => {
     const t = searchParams.get('tab');
-    if (t && ['overview', 'users', 'visit', 'plans', 'subscriptions', 'settings'].includes(t)) {
+    if (t === 'users' || t === 'smtp' || t === 'razorpay') {
+      setActiveTab('settings');
+      setSettingsSubTab(t);
+    } else if (t && ['overview', 'users', 'visit', 'plans', 'subscriptions', 'settings'].includes(t)) {
       setActiveTab(t);
     } else if (defaultTab) {
       setActiveTab(defaultTab);
@@ -159,16 +190,18 @@ function AdminConsoleInner({ defaultTab = 'overview' }) {
   const loadAllAdminData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersRes, plansRes, subsRes, rzpRes] = await Promise.all([
+      const [usersRes, plansRes, subsRes, rzpRes, smtpRes] = await Promise.all([
         api.get('/admin/users'),
         api.get('/admin/plans'),
         api.get('/admin/subscriptions'),
         api.get('/admin/settings/payment-gateway').catch(() => null),
+        api.get('/admin/settings/email-smtp').catch(() => null),
       ]);
       const uList = usersRes?.data || usersRes;
       const pList = plansRes?.data || plansRes;
       const sList = subsRes?.data || subsRes;
       const rzpData = rzpRes?.data || rzpRes;
+      const smtpData = smtpRes?.data || smtpRes;
 
       if (Array.isArray(uList) && uList.length) setUsers(uList);
       if (Array.isArray(pList) && pList.length) setPlans(pList);
@@ -187,6 +220,21 @@ function AdminConsoleInner({ defaultTab = 'overview' }) {
           configured: Boolean(rzpData.configured),
           hasSecret: Boolean(rzpData.hasSecret),
           status: rzpData.status || 'not_configured',
+        }));
+      }
+
+      if (smtpData) {
+        setAdminSmtp((prev) => ({
+          ...prev,
+          host: smtpData.host || '',
+          port: String(smtpData.port || 587),
+          secure: Boolean(smtpData.secure),
+          user: smtpData.user || '',
+          fromEmail: smtpData.fromEmail || 'notifications@chatflow.local',
+          fromName: smtpData.fromName || 'ChatFlow Platform',
+          configured: Boolean(smtpData.configured),
+          hasPassword: Boolean(smtpData.hasPassword),
+          status: smtpData.status || 'not_configured',
         }));
       }
     } catch {
@@ -232,6 +280,71 @@ function AdminConsoleInner({ defaultTab = 'overview' }) {
       });
     } finally {
       setSavingAdminRzp(false);
+    }
+  };
+
+  const handleSaveAdminSmtp = async (e) => {
+    e.preventDefault();
+    if (!adminSmtp.host.trim() || !adminSmtp.fromEmail.trim()) {
+      setSmtpFeedback({ type: 'error', message: 'SMTP Host and Sender Email are required.' });
+      return;
+    }
+    setSavingAdminSmtp(true);
+    setSmtpFeedback(null);
+    try {
+      const res = await api.post('/admin/settings/email-smtp', {
+        host: adminSmtp.host.trim(),
+        port: Number(adminSmtp.port) || 587,
+        secure: Boolean(adminSmtp.secure),
+        user: adminSmtp.user.trim() || undefined,
+        password: adminSmtp.password || undefined,
+        fromEmail: adminSmtp.fromEmail.trim(),
+        fromName: adminSmtp.fromName.trim() || undefined,
+      });
+      const data = res?.data || res;
+      setAdminSmtp((p) => ({
+        ...p,
+        configured: true,
+        hasPassword: Boolean(p.password || p.hasPassword),
+        status: 'configured',
+        password: '',
+      }));
+      setSmtpFeedback({
+        type: 'success',
+        message: 'Platform Email SMTP configuration saved and encrypted with AES-256-GCM!',
+      });
+      showNotice('Email SMTP settings updated');
+    } catch (err) {
+      setSmtpFeedback({
+        type: 'error',
+        message: err?.message || 'Failed to save Email SMTP settings.',
+      });
+    } finally {
+      setSavingAdminSmtp(false);
+    }
+  };
+
+  const handleSendTestEmail = async (e) => {
+    e.preventDefault();
+    if (!testEmailTo.trim()) return;
+    setSendingTestEmail(true);
+    setTestEmailResult(null);
+    try {
+      const res = await api.post('/admin/settings/email-smtp/test', {
+        toEmail: testEmailTo.trim(),
+      });
+      const data = res?.data || res;
+      setTestEmailResult({
+        type: 'success',
+        message: data.message || `Test email dispatched to ${testEmailTo}!`,
+      });
+    } catch (err) {
+      setTestEmailResult({
+        type: 'error',
+        message: err?.message || 'Could not dispatch test email.',
+      });
+    } finally {
+      setSendingTestEmail(false);
     }
   };
 
@@ -1017,316 +1130,630 @@ function AdminConsoleInner({ defaultTab = 'overview' }) {
         </section>
       )}
 
-      {/* ==================== TAB: USER ACCESS & SETTINGS ==================== */}
+      {/* ==================== TAB: PLATFORM & GATEWAY SETTINGS ==================== */}
       {activeTab === 'settings' && (
-        <div style={{ display: 'grid', gap: 24 }}>
-          {/* Platform Razorpay Payment Gateway Settings Card */}
-          <section className="panel-card">
-            <div className="panel-head">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 8,
-                    background: '#0c2340',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#3395ff',
-                    fontWeight: 900,
-                    fontSize: '1.1rem',
-                  }}
-                >
-                  ₹
-                </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <h3 style={{ margin: 0 }}>Platform Razorpay Payment Gateway</h3>
-                    {adminRazorpay.configured ? (
-                      <span className="badge badge-green">
-                        <CheckCircle2 size={12} /> Configured &amp; Active
-                      </span>
-                    ) : (
-                      <span className="badge">Not Configured</span>
-                    )}
-                    {adminRazorpay.isTestMode ? (
-                      <span className="badge badge-purple">Test Mode (rzp_test)</span>
-                    ) : (
-                      <span className="badge badge-green">Live Production (rzp_live)</span>
-                    )}
-                  </div>
-                  <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--muted)' }}>
-                    Centrally configure the platform’s Razorpay Key ID and Secret. All user plan
-                    upgrades and subscription billing across the platform will be processed through
-                    this account.
-                  </p>
-                </div>
-              </div>
-
-              <a
-                href="https://dashboard.razorpay.com/app/keys"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-outline btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        <div style={{ display: 'grid', gap: 20 }}>
+          {/* Settings Section Sub-Tabs */}
+          <div className="toolbar" style={{ margin: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={`btn btn-sm ${settingsSubTab === 'razorpay' ? 'btn-dark' : 'btn-outline'}`}
+                onClick={() => setSettingsSubTab('razorpay')}
+                style={{ gap: 6 }}
               >
-                <span>Razorpay Dashboard</span>
-                <ExternalLink size={13} />
-              </a>
+                <CreditCard size={14} />
+                <span>Razorpay Gateway</span>
+                {adminRazorpay.configured && (
+                  <span className="badge badge-green" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                    Active
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className={`btn btn-sm ${settingsSubTab === 'smtp' ? 'btn-dark' : 'btn-outline'}`}
+                onClick={() => setSettingsSubTab('smtp')}
+                style={{ gap: 6 }}
+              >
+                <Mail size={14} />
+                <span>Email SMTP Configuration</span>
+                {adminSmtp.configured && (
+                  <span className="badge badge-green" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                    Active
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className={`btn btn-sm ${settingsSubTab === 'users' ? 'btn-dark' : 'btn-outline'}`}
+                onClick={() => setSettingsSubTab('users')}
+                style={{ gap: 6 }}
+              >
+                <Users size={14} />
+                <span>User Access &amp; Roles ({users.length})</span>
+              </button>
             </div>
+          </div>
 
-            {rzpFeedback && (
-              <div
-                className={`alert ${
-                  rzpFeedback.type === 'success' ? 'alert-success' : 'alert-error'
-                }`}
-                role="status"
-                style={{ margin: '14px 20px 0 20px' }}
-              >
-                {rzpFeedback.type === 'success' ? <CheckCircle2 /> : <AlertCircle />}
-                <span>{rzpFeedback.message}</span>
-              </div>
-            )}
-
-            <form
-              onSubmit={handleSaveAdminRazorpay}
-              className="panel-body"
-              style={{ display: 'grid', gap: 16 }}
-            >
-              <div className="dash-grid-equal" style={{ gap: 16 }}>
-                <div className="field">
-                  <label className="label" htmlFor="admin-rzp-key-id">
-                    Razorpay Key ID *
-                  </label>
-                  <input
-                    id="admin-rzp-key-id"
-                    type="text"
-                    className="input"
-                    placeholder="rzp_test_... or rzp_live_..."
-                    value={adminRazorpay.keyId}
-                    onChange={(e) => setAdminRazorpay((p) => ({ ...p, keyId: e.target.value }))}
-                    required
-                  />
-                  <span className="field-hint">
-                    From your Razorpay Dashboard → Settings → API Keys.
-                  </span>
-                </div>
-
-                <div className="field">
-                  <label className="label" htmlFor="admin-rzp-key-secret">
-                    Razorpay Key Secret {adminRazorpay.hasSecret ? '(Leave blank to keep existing)' : '*'}
-                  </label>
-                  <div className="password-input-wrap">
-                    <input
-                      id="admin-rzp-key-secret"
-                      type={showRzpSecret ? 'text' : 'password'}
-                      className="input"
-                      placeholder={
-                        adminRazorpay.hasSecret ? '••••••••••••••••' : 'Enter Razorpay Key Secret'
-                      }
-                      value={adminRazorpay.keySecret}
-                      onChange={(e) =>
-                        setAdminRazorpay((p) => ({ ...p, keySecret: e.target.value }))
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="password-toggle-btn"
-                      onClick={() => setShowRzpSecret((v) => !v)}
-                      aria-label={showRzpSecret ? 'Hide secret' : 'Show secret'}
-                    >
-                      {showRzpSecret ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                  <span className="field-hint">
-                    Stored on the server using AES-256-GCM authenticated encryption.
-                  </span>
-                </div>
-              </div>
-
-              <div className="dash-grid-equal" style={{ gap: 16 }}>
-                <div className="field">
-                  <label className="label" htmlFor="admin-rzp-webhook-secret">
-                    Webhook Secret (Optional)
-                  </label>
-                  <input
-                    id="admin-rzp-webhook-secret"
-                    type="password"
-                    className="input"
-                    placeholder="Razorpay webhook secret for renewal callbacks"
-                    value={adminRazorpay.webhookSecret}
-                    onChange={(e) =>
-                      setAdminRazorpay((p) => ({ ...p, webhookSecret: e.target.value }))
-                    }
-                  />
-                  <span className="field-hint">
-                    Used to verify automated subscription recurring payments and billing webhooks.
-                  </span>
-                </div>
-
-                <div className="field">
-                  <label className="label" htmlFor="admin-rzp-account-name">
-                    Platform Merchant Display Label
-                  </label>
-                  <input
-                    id="admin-rzp-account-name"
-                    type="text"
-                    className="input"
-                    placeholder="e.g. ChatFlow Platform Payments"
-                    value={adminRazorpay.accountName}
-                    onChange={(e) =>
-                      setAdminRazorpay((p) => ({ ...p, accountName: e.target.value }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 16px',
-                  borderRadius: 'var(--r-md)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-2)',
-                  flexWrap: 'wrap',
-                  gap: 12,
-                }}
-              >
+          {/* Sub-tab 1: Razorpay Payment Gateway */}
+          {(settingsSubTab === 'razorpay' || settingsSubTab === 'all') && (
+            <section className="panel-card">
+              <div className="panel-head">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Lock size={16} color="var(--green-deep)" />
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      background: '#0c2340',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#3395ff',
+                      fontWeight: 900,
+                      fontSize: '1.1rem',
+                    }}
+                  >
+                    ₹
+                  </div>
                   <div>
-                    <strong style={{ fontSize: '0.88rem' }}>Environment Mode</strong>
-                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--muted)' }}>
-                      Test Mode lets users test checkout with simulated UPI/cards; Live Mode charges real INR.
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <h3 style={{ margin: 0 }}>Platform Razorpay Payment Gateway</h3>
+                      {adminRazorpay.configured ? (
+                        <span className="badge badge-green">
+                          <CheckCircle2 size={12} /> Configured &amp; Active
+                        </span>
+                      ) : (
+                        <span className="badge">Not Configured</span>
+                      )}
+                      {adminRazorpay.isTestMode ? (
+                        <span className="badge badge-purple">Test Mode (rzp_test)</span>
+                      ) : (
+                        <span className="badge badge-green">Live Production (rzp_live)</span>
+                      )}
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--muted)' }}>
+                      Centrally configure the platform’s Razorpay Key ID and Secret. All user plan
+                      upgrades and subscription billing across the platform will be processed through
+                      this account.
                     </p>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
+                <a
+                  href="https://dashboard.razorpay.com/app/keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-outline btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span>Razorpay Dashboard</span>
+                  <ExternalLink size={13} />
+                </a>
+              </div>
+
+              {rzpFeedback && (
+                <div
+                  className={`alert ${
+                    rzpFeedback.type === 'success' ? 'alert-success' : 'alert-error'
+                  }`}
+                  role="status"
+                  style={{ margin: '14px 20px 0 20px' }}
+                >
+                  {rzpFeedback.type === 'success' ? <CheckCircle2 /> : <AlertCircle />}
+                  <span>{rzpFeedback.message}</span>
+                </div>
+              )}
+
+              <form
+                onSubmit={handleSaveAdminRazorpay}
+                className="panel-body"
+                style={{ display: 'grid', gap: 16 }}
+              >
+                <div className="dash-grid-equal" style={{ gap: 16 }}>
+                  <div className="field">
+                    <label className="label" htmlFor="admin-rzp-key-id">
+                      Razorpay Key ID *
+                    </label>
                     <input
-                      type="radio"
-                      name="adminRzpMode"
-                      checked={adminRazorpay.isTestMode === true}
-                      onChange={() => setAdminRazorpay((p) => ({ ...p, isTestMode: true }))}
+                      id="admin-rzp-key-id"
+                      type="text"
+                      className="input"
+                      placeholder="rzp_test_... or rzp_live_..."
+                      value={adminRazorpay.keyId}
+                      onChange={(e) => setAdminRazorpay((p) => ({ ...p, keyId: e.target.value }))}
+                      required
                     />
-                    <span>Test Mode (rzp_test)</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
+                    <span className="field-hint">
+                      From your Razorpay Dashboard → Settings → API Keys.
+                    </span>
+                  </div>
+
+                  <div className="field">
+                    <label className="label" htmlFor="admin-rzp-key-secret">
+                      Razorpay Key Secret {adminRazorpay.hasSecret ? '(Leave blank to keep existing)' : '*'}
+                    </label>
+                    <div className="password-input-wrap">
+                      <input
+                        id="admin-rzp-key-secret"
+                        type={showRzpSecret ? 'text' : 'password'}
+                        className="input"
+                        placeholder={
+                          adminRazorpay.hasSecret ? '••••••••••••••••' : 'Enter Razorpay Key Secret'
+                        }
+                        value={adminRazorpay.keySecret}
+                        onChange={(e) =>
+                          setAdminRazorpay((p) => ({ ...p, keySecret: e.target.value }))
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() => setShowRzpSecret((v) => !v)}
+                        aria-label={showRzpSecret ? 'Hide secret' : 'Show secret'}
+                      >
+                        {showRzpSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                    <span className="field-hint">
+                      Stored on the server using AES-256-GCM authenticated encryption.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="dash-grid-equal" style={{ gap: 16 }}>
+                  <div className="field">
+                    <label className="label" htmlFor="admin-rzp-webhook-secret">
+                      Webhook Secret (Optional)
+                    </label>
                     <input
-                      type="radio"
-                      name="adminRzpMode"
-                      checked={adminRazorpay.isTestMode === false}
-                      onChange={() => setAdminRazorpay((p) => ({ ...p, isTestMode: false }))}
+                      id="admin-rzp-webhook-secret"
+                      type="password"
+                      className="input"
+                      placeholder="Razorpay webhook secret for renewal callbacks"
+                      value={adminRazorpay.webhookSecret}
+                      onChange={(e) =>
+                        setAdminRazorpay((p) => ({ ...p, webhookSecret: e.target.value }))
+                      }
                     />
-                    <span>Live Mode (rzp_live)</span>
-                  </label>
+                    <span className="field-hint">
+                      Used to verify automated subscription recurring payments and billing webhooks.
+                    </span>
+                  </div>
+
+                  <div className="field">
+                    <label className="label" htmlFor="admin-rzp-account-name">
+                      Platform Merchant Display Label
+                    </label>
+                    <input
+                      id="admin-rzp-account-name"
+                      type="text"
+                      className="input"
+                      placeholder="e.g. ChatFlow Platform Payments"
+                      value={adminRazorpay.accountName}
+                      onChange={(e) =>
+                        setAdminRazorpay((p) => ({ ...p, accountName: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderRadius: 'var(--r-md)',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-2)',
+                    flexWrap: 'wrap',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Lock size={16} color="var(--green-deep)" />
+                    <div>
+                      <strong style={{ fontSize: '0.88rem' }}>Environment Mode</strong>
+                      <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--muted)' }}>
+                        Test Mode lets users test checkout with simulated UPI/cards; Live Mode charges real INR.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
+                      <input
+                        type="radio"
+                        name="adminRzpMode"
+                        checked={adminRazorpay.isTestMode === true}
+                        onChange={() => setAdminRazorpay((p) => ({ ...p, isTestMode: true }))}
+                      />
+                      <span>Test Mode (rzp_test)</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
+                      <input
+                        type="radio"
+                        name="adminRzpMode"
+                        checked={adminRazorpay.isTestMode === false}
+                        onChange={() => setAdminRazorpay((p) => ({ ...p, isTestMode: false }))}
+                      />
+                      <span>Live Mode (rzp_live)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                    disabled={savingAdminRzp}
+                    style={{ gap: 8 }}
+                  >
+                    <ShieldCheck size={16} />
+                    {savingAdminRzp ? 'Saving Gateway Settings...' : 'Save Platform Razorpay Settings'}
+                  </button>
+                </div>
+              </form>
+            </section>
+          )}
+
+          {/* Sub-tab 2: Email SMTP Configuration */}
+          {(settingsSubTab === 'smtp' || settingsSubTab === 'all') && (
+            <section className="panel-card">
+              <div className="panel-head">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      background: '#1e1b4b',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#a78bfa',
+                      fontWeight: 900,
+                    }}
+                  >
+                    <Mail size={18} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <h3 style={{ margin: 0 }}>Platform Email SMTP Configuration</h3>
+                      {adminSmtp.configured ? (
+                        <span className="badge badge-green">
+                          <CheckCircle2 size={12} /> Configured &amp; Operational
+                        </span>
+                      ) : (
+                        <span className="badge">Not Configured</span>
+                      )}
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--muted)' }}>
+                      Set up your outgoing SMTP server credentials to send password reset links,
+                      onboarding invitations, and platform notifications.
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-sm"
-                  disabled={savingAdminRzp}
-                  style={{ gap: 8 }}
+              {smtpFeedback && (
+                <div
+                  className={`alert ${
+                    smtpFeedback.type === 'success' ? 'alert-success' : 'alert-error'
+                  }`}
+                  role="status"
+                  style={{ margin: '14px 20px 0 20px' }}
                 >
-                  <ShieldCheck size={16} />
-                  {savingAdminRzp ? 'Saving Gateway Settings...' : 'Save Platform Razorpay Settings'}
+                  {smtpFeedback.type === 'success' ? <CheckCircle2 /> : <AlertCircle />}
+                  <span>{smtpFeedback.message}</span>
+                </div>
+              )}
+
+              <form
+                onSubmit={handleSaveAdminSmtp}
+                className="panel-body"
+                style={{ display: 'grid', gap: 16 }}
+              >
+                <div className="dash-grid-equal" style={{ gap: 16 }}>
+                  <div className="field">
+                    <label className="label" htmlFor="smtp-host">
+                      SMTP Host / Server *
+                    </label>
+                    <input
+                      id="smtp-host"
+                      type="text"
+                      className="input"
+                      placeholder="e.g. smtp.gmail.com or smtp.sendgrid.net"
+                      value={adminSmtp.host}
+                      onChange={(e) => setAdminSmtp((p) => ({ ...p, host: e.target.value }))}
+                      required
+                    />
+                    <span className="field-hint">
+                      Hostname provided by your mail provider (Gmail, AWS SES, SendGrid, etc).
+                    </span>
+                  </div>
+
+                  <div className="dash-grid-equal" style={{ gap: 12 }}>
+                    <div className="field">
+                      <label className="label" htmlFor="smtp-port">
+                        SMTP Port *
+                      </label>
+                      <input
+                        id="smtp-port"
+                        type="number"
+                        className="input"
+                        placeholder="587"
+                        value={adminSmtp.port}
+                        onChange={(e) => setAdminSmtp((p) => ({ ...p, port: e.target.value }))}
+                        required
+                      />
+                      <span className="field-hint">Standard: 587 (TLS) or 465 (SSL)</span>
+                    </div>
+
+                    <div className="field" style={{ alignSelf: 'center', paddingTop: 14 }}>
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(adminSmtp.secure)}
+                          onChange={(e) =>
+                            setAdminSmtp((p) => ({ ...p, secure: e.target.checked }))
+                          }
+                          style={{ width: 17, height: 17 }}
+                        />
+                        <span>Enable SSL/TLS (Port 465)</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="dash-grid-equal" style={{ gap: 16 }}>
+                  <div className="field">
+                    <label className="label" htmlFor="smtp-user">
+                      SMTP Username / Email
+                    </label>
+                    <input
+                      id="smtp-user"
+                      type="text"
+                      className="input"
+                      placeholder="e.g. notifications@chatflow.in or API_KEY"
+                      value={adminSmtp.user}
+                      onChange={(e) => setAdminSmtp((p) => ({ ...p, user: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label className="label" htmlFor="smtp-password">
+                      SMTP Password / App Password {adminSmtp.hasPassword ? '(Leave blank to keep existing)' : ''}
+                    </label>
+                    <div className="password-input-wrap">
+                      <input
+                        id="smtp-password"
+                        type={showSmtpPassword ? 'text' : 'password'}
+                        className="input"
+                        placeholder={
+                          adminSmtp.hasPassword ? '••••••••••••••••' : 'Enter SMTP password or app key'
+                        }
+                        value={adminSmtp.password}
+                        onChange={(e) => setAdminSmtp((p) => ({ ...p, password: e.target.value }))}
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() => setShowSmtpPassword((v) => !v)}
+                        aria-label={showSmtpPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showSmtpPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                    <span className="field-hint">
+                      AES-256-GCM encrypted in the database.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="dash-grid-equal" style={{ gap: 16 }}>
+                  <div className="field">
+                    <label className="label" htmlFor="smtp-from-email">
+                      Default &ldquo;From&rdquo; Email Address *
+                    </label>
+                    <input
+                      id="smtp-from-email"
+                      type="email"
+                      className="input"
+                      placeholder="e.g. no-reply@chatflow.in"
+                      value={adminSmtp.fromEmail}
+                      onChange={(e) => setAdminSmtp((p) => ({ ...p, fromEmail: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label className="label" htmlFor="smtp-from-name">
+                      Default &ldquo;From&rdquo; Display Name
+                    </label>
+                    <input
+                      id="smtp-from-name"
+                      type="text"
+                      className="input"
+                      placeholder="e.g. ChatFlow Notifications"
+                      value={adminSmtp.fromName}
+                      onChange={(e) => setAdminSmtp((p) => ({ ...p, fromName: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                    disabled={savingAdminSmtp}
+                    style={{ gap: 8 }}
+                  >
+                    <ShieldCheck size={16} />
+                    {savingAdminSmtp ? 'Saving SMTP Settings...' : 'Save Email SMTP Settings'}
+                  </button>
+                </div>
+              </form>
+
+              {/* Send Test Email Card */}
+              <div
+                style={{
+                  borderTop: '1px solid var(--border)',
+                  padding: '20px',
+                  background: 'var(--surface-2)',
+                  display: 'grid',
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 700 }}>
+                    Send Test Email Verification
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
+                    Verify your SMTP server connection by dispatching an instant test email.
+                  </p>
+                </div>
+
+                {testEmailResult && (
+                  <div
+                    className={`alert ${
+                      testEmailResult.type === 'success' ? 'alert-success' : 'alert-error'
+                    }`}
+                    style={{ padding: '8px 12px', fontSize: '0.84rem' }}
+                  >
+                    {testEmailResult.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                    <span>{testEmailResult.message}</span>
+                  </div>
+                )}
+
+                <form
+                  onSubmit={handleSendTestEmail}
+                  style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}
+                >
+                  <input
+                    type="email"
+                    className="input"
+                    style={{ maxWidth: 360 }}
+                    placeholder="Recipient email address"
+                    value={testEmailTo}
+                    onChange={(e) => setTestEmailTo(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="btn btn-dark btn-sm"
+                    disabled={sendingTestEmail}
+                    style={{ gap: 8 }}
+                  >
+                    <Send size={14} />
+                    {sendingTestEmail ? 'Sending Test...' : 'Send Test Verification Email'}
+                  </button>
+                </form>
+              </div>
+            </section>
+          )}
+
+          {/* Sub-tab 3: User Access & Roles Table */}
+          {(settingsSubTab === 'users' || settingsSubTab === 'all') && (
+            <section className="panel-card">
+              <div className="panel-head">
+                <div>
+                  <h3>Global User Access, Roles &amp; Account Settings ({users.length})</h3>
+                  <p>
+                    Configure user permissions, toggle active/suspended status, grant Super Admin access,
+                    or open full account &amp; password settings.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={openCreateUserModal}
+                >
+                  <Plus size={15} /> Add New User
                 </button>
               </div>
-            </form>
-          </section>
-
-          {/* User Access & Roles Table */}
-          <section className="panel-card">
-            <div className="panel-head">
-              <div>
-                <h3>Global User Access, Roles &amp; Account Settings ({users.length})</h3>
-                <p>
-                  Configure user permissions, toggle active/suspended status, grant Super Admin access,
-                  or open full account &amp; password settings.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={openCreateUserModal}
-              >
-                <Plus size={15} /> Add New User
-              </button>
-            </div>
-            <div className="data-table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>User</th>
-                    <th>Business Workspace</th>
-                    <th>Workspace Role</th>
-                    <th>Account Status</th>
-                    <th>Super Admin Access</th>
-                    <th style={{ textAlign: 'right' }}>Configure</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id}>
-                      <td>
-                        <div style={{ fontWeight: 700 }}>{u.name}</div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>{u.email}</div>
-                      </td>
-                      <td>{u.business?.name || '—'}</td>
-                      <td>
-                        <span className="badge" style={{ textTransform: 'capitalize' }}>
-                          {u.role}
-                        </span>
-                      </td>
-                      <td>
-                        {u.isActive ? (
-                          <span className="badge badge-green">Active</span>
-                        ) : (
-                          <span className="badge badge-coral">Suspended</span>
-                        )}
-                      </td>
-                      <td>
-                        {u.isSuperAdmin ? (
-                          <span className="badge badge-purple">
-                            <Crown size={11} /> Super Admin
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                            Standard User
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: 8 }}>
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            onClick={() => openEditUserModal(u)}
-                          >
-                            <Settings2 size={14} /> Edit Settings &amp; Plan
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            style={{ color: u.isActive ? 'var(--danger)' : 'var(--green-deep)' }}
-                            onClick={() => handleQuickToggleUserActive(u)}
-                          >
-                            {u.isActive ? 'Suspend' : 'Activate'}
-                          </button>
-                        </div>
-                      </td>
+              <div className="data-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Business Workspace</th>
+                      <th>Workspace Role</th>
+                      <th>Account Status</th>
+                      <th>Super Admin Access</th>
+                      <th style={{ textAlign: 'right' }}>Configure</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id}>
+                        <td>
+                          <div style={{ fontWeight: 700 }}>{u.name}</div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>{u.email}</div>
+                        </td>
+                        <td>{u.business?.name || '—'}</td>
+                        <td>
+                          <span className="badge" style={{ textTransform: 'capitalize' }}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td>
+                          {u.isActive ? (
+                            <span className="badge badge-green">Active</span>
+                          ) : (
+                            <span className="badge badge-coral">Suspended</span>
+                          )}
+                        </td>
+                        <td>
+                          {u.isSuperAdmin ? (
+                            <span className="badge badge-purple">
+                              <Crown size={11} /> Super Admin
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                              Standard User
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: 8 }}>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={() => openEditUserModal(u)}
+                            >
+                              <Settings2 size={14} /> Edit Settings &amp; Plan
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ color: u.isActive ? 'var(--danger)' : 'var(--green-deep)' }}
+                              onClick={() => handleQuickToggleUserActive(u)}
+                            >
+                              {u.isActive ? 'Suspend' : 'Activate'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
         </div>
       )}
 

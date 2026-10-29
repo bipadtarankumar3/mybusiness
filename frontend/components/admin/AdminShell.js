@@ -12,6 +12,9 @@ import {
   Layers,
   BadgeIndianRupee,
   Sliders,
+  Settings,
+  Mail,
+  CreditCard,
   LogOut,
   Menu,
   X,
@@ -48,7 +51,7 @@ const ADMIN_NAV_GROUPS = [
     ],
   },
   {
-    label: 'Plans & Billing',
+    label: 'Plans & Subscriptions',
     items: [
       {
         label: 'Subscription Plans',
@@ -65,11 +68,17 @@ const ADMIN_NAV_GROUPS = [
     ],
   },
   {
-    label: 'Governance',
+    label: 'System & Governance',
     items: [
       {
-        label: 'User Access & Settings',
+        label: 'Platform Settings',
         href: '/admin/settings',
+        icon: Settings,
+        tone: 'tone-green',
+      },
+      {
+        label: 'User Access & Roles',
+        href: '/admin/settings?tab=users',
         icon: Sliders,
         tone: 'tone-yellow',
       },

@@ -255,4 +255,26 @@ router.post(
   adminCtrl.updateAdminPaymentGateway
 );
 
+// Admin Platform Settings (Email SMTP)
+router.get(
+  '/admin/settings/email-smtp',
+  requireAuth,
+  requireSuperAdmin,
+  adminCtrl.getAdminSmtpSettings
+);
+router.post(
+  '/admin/settings/email-smtp',
+  requireAuth,
+  requireSuperAdmin,
+  validateBody(adminCtrl.adminSmtpSchema),
+  adminCtrl.updateAdminSmtpSettings
+);
+router.post(
+  '/admin/settings/email-smtp/test',
+  requireAuth,
+  requireSuperAdmin,
+  validateBody(adminCtrl.adminSendTestEmailSchema),
+  adminCtrl.sendAdminTestEmail
+);
+
 module.exports = router;
