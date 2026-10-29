@@ -169,19 +169,54 @@ async function seedDemoWorkspace(models) {
 
   const existingDemo = await User.findOne({ where: { email: 'demo@chatflow.local' } });
   if (existingDemo) {
+    if (!existingDemo.isSuperAdmin) {
+      await existingDemo.update({ isSuperAdmin: true });
+    }
+    const existingAdmin = await User.findOne({ where: { email: 'admin@chatflow.local' } });
+    if (!existingAdmin) {
+      const adminHash = await bcrypt.hash('Admin@12345', 10);
+      const superAdmin = await User.create({
+        name: 'Vikram Singh (Platform Admin)',
+        email: 'admin@chatflow.local',
+        passwordHash: adminHash,
+        isSuperAdmin: true,
+        isActive: true,
+        emailVerifiedAt: new Date(),
+        lastLoginAt: new Date(),
+      });
+      const firstBiz = await Business.findOne();
+      if (firstBiz) {
+        await BusinessMember.findOrCreate({
+          where: { businessId: firstBiz.id, userId: superAdmin.id },
+          defaults: { businessId: firstBiz.id, userId: superAdmin.id, role: 'owner', status: 'active' },
+        });
+      }
+    }
     return;
   }
 
   const passwordHash = await bcrypt.hash('Demo@12345', 10);
+  const adminPasswordHash = await bcrypt.hash('Admin@12345', 10);
   const now = new Date();
   const hoursAgo = (h) => new Date(now.getTime() - h * 3600 * 1000);
   const daysAgo = (d) => new Date(now.getTime() - d * 24 * 3600 * 1000);
   const hoursFromNow = (h) => new Date(now.getTime() + h * 3600 * 1000);
 
+  const superAdmin = await User.create({
+    name: 'Vikram Singh (Platform Admin)',
+    email: 'admin@chatflow.local',
+    passwordHash: adminPasswordHash,
+    isSuperAdmin: true,
+    isActive: true,
+    emailVerifiedAt: daysAgo(90),
+    lastLoginAt: now,
+  });
+
   const owner = await User.create({
     name: 'Rajesh Sharma',
     email: 'demo@chatflow.local',
     passwordHash,
+    isSuperAdmin: true,
     isActive: true,
     emailVerifiedAt: daysAgo(60),
     lastLoginAt: hoursAgo(1),
@@ -230,6 +265,7 @@ async function seedDemoWorkspace(models) {
   });
 
   await BusinessMember.bulkCreate([
+    { businessId: business.id, userId: superAdmin.id, teamId: salesTeam.id, role: 'owner', status: 'active' },
     { businessId: business.id, userId: owner.id, teamId: salesTeam.id, role: 'owner', status: 'active' },
     { businessId: business.id, userId: adminUser.id, teamId: salesTeam.id, role: 'admin', status: 'active' },
     { businessId: business.id, userId: agentUser.id, teamId: salesTeam.id, role: 'agent', status: 'active' },

@@ -54,14 +54,16 @@ function hashResetToken(rawToken) {
   return crypto.createHmac('sha256', env.PASSWORD_RESET_SECRET).update(String(rawToken)).digest('hex');
 }
 
-function formatSessionResponse({ user, business, role, plan }) {
+function formatSessionResponse({ user, business, role, plan, impersonatedBy = null }) {
   return {
     user: {
       id: Number(user.id),
       name: user.name,
       email: user.email,
       avatarUrl: user.avatarUrl || null,
+      isSuperAdmin: Boolean(user.isSuperAdmin || impersonatedBy),
     },
+    impersonatedBy: impersonatedBy || null,
     business: {
       id: Number(business.id),
       name: business.name,
@@ -313,6 +315,7 @@ async function me(req, res) {
       business: req.ctx.business,
       role: req.ctx.role,
       plan: req.ctx.plan,
+      impersonatedBy: req.ctx.impersonatedBy || null,
     })
   );
 }

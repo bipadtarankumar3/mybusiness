@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Logo from '@/components/brand/Logo';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -24,41 +24,84 @@ import {
   FlaskConical,
   Plus,
   ExternalLink,
+  ShieldAlert,
+  Crown,
+  Layers,
+  BadgeIndianRupee,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
   {
     label: 'Workspace',
     items: [
-      { label: 'Overview', href: '/dashboard', icon: LayoutDashboard, exact: true },
-      { label: 'Shared Inbox', href: '/dashboard/inbox', icon: Inbox, badge: 'Live' },
-      { label: 'Contacts & CRM', href: '/dashboard/contacts', icon: Users },
-      { label: 'Follow-ups', href: '/dashboard/follow-ups', icon: BellRing },
+      { label: 'Overview', href: '/dashboard', icon: LayoutDashboard, tone: 'tone-green', exact: true },
+      { label: 'Shared Inbox', href: '/dashboard/inbox', icon: Inbox, tone: 'tone-blue', badge: 'Live' },
+      { label: 'Contacts & CRM', href: '/dashboard/contacts', icon: Users, tone: 'tone-purple' },
+      { label: 'Follow-ups', href: '/dashboard/follow-ups', icon: BellRing, tone: 'tone-yellow' },
     ],
   },
   {
     label: 'Growth & Automation',
     items: [
-      { label: 'Campaigns', href: '/dashboard/campaigns', icon: Megaphone },
-      { label: 'Automation', href: '/dashboard/automation', icon: Workflow },
-      { label: 'AI Assistant', href: '/dashboard/ai', icon: Sparkles },
-      { label: 'Analytics & ROI', href: '/dashboard/analytics', icon: BarChart3 },
+      { label: 'Campaigns', href: '/dashboard/campaigns', icon: Megaphone, tone: 'tone-coral' },
+      { label: 'Automation', href: '/dashboard/automation', icon: Workflow, tone: 'tone-purple' },
+      { label: 'AI Assistant', href: '/dashboard/ai', icon: Sparkles, tone: 'tone-yellow' },
+      { label: 'Analytics & ROI', href: '/dashboard/analytics', icon: BarChart3, tone: 'tone-green' },
     ],
   },
   {
     label: 'Administration',
     items: [
-      { label: 'Team Members', href: '/dashboard/team', icon: UserCheck },
-      { label: 'Integrations', href: '/dashboard/integrations', icon: Plug },
-      { label: 'Billing & Usage', href: '/dashboard/billing', icon: CreditCard },
-      { label: 'Settings', href: '/dashboard/settings', icon: Settings },
+      { label: 'Team Members', href: '/dashboard/team', icon: UserCheck, tone: 'tone-blue' },
+      { label: 'Integrations', href: '/dashboard/integrations', icon: Plug, tone: 'tone-green' },
+      { label: 'Billing & Usage', href: '/dashboard/billing', icon: CreditCard, tone: 'tone-purple' },
+      { label: 'Settings', href: '/dashboard/settings', icon: Settings, tone: 'tone-yellow' },
     ],
   },
 ];
 
+const SUPER_ADMIN_GROUP = {
+  label: 'Super Admin Console',
+  items: [
+    {
+      label: 'Users & Workspaces',
+      href: '/dashboard/admin',
+      icon: Crown,
+      tone: 'tone-yellow',
+      badge: 'Pro Admin',
+      exact: true,
+    },
+    {
+      label: 'Plans & Subscriptions',
+      href: '/dashboard/admin?tab=plans',
+      icon: Layers,
+      tone: 'tone-purple',
+    },
+    {
+      label: 'All Subscriptions',
+      href: '/dashboard/admin?tab=subscriptions',
+      icon: BadgeIndianRupee,
+      tone: 'tone-green',
+    },
+  ],
+};
+
 export default function DashboardShell({ children }) {
   const pathname = usePathname();
-  const { user, business, role, plan, isDemo, isOfflineDemo, logout } = useAuth();
+  const router = useRouter();
+  const {
+    user,
+    impersonatedBy,
+    isSuperAdmin,
+    business,
+    role,
+    plan,
+    isDemo,
+    isOfflineDemo,
+    logout,
+    stopImpersonating,
+  } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isFlushInbox = pathname === '/dashboard/inbox';
@@ -71,8 +114,16 @@ export default function DashboardShell({ children }) {
     .toUpperCase();
 
   const isActive = (item) => {
-    if (item.exact) return pathname === item.href;
-    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+    const cleanHref = item.href.split('?')[0];
+    if (item.exact) return pathname === cleanHref;
+    return pathname === cleanHref || pathname.startsWith(`${cleanHref}/`);
+  };
+
+  const groupsToRender = isSuperAdmin ? [SUPER_ADMIN_GROUP, ...NAV_GROUPS] : NAV_GROUPS;
+
+  const handleReturnToAdmin = async () => {
+    await stopImpersonating();
+    router.push('/dashboard/admin');
   };
 
   return (
@@ -102,15 +153,22 @@ export default function DashboardShell({ children }) {
                 <span style={{ textTransform: 'capitalize' }}>{role || 'owner'}</span>
               </div>
             </div>
-            {isDemo && (
+            {isSuperAdmin ? (
+              <span
+                className="badge badge-purple"
+                style={{ fontSize: '0.65rem', padding: '2px 7px', background: '#4c1d95', color: '#ede9fe' }}
+              >
+                Admin
+              </span>
+            ) : isDemo ? (
               <span className="badge badge-demo" style={{ fontSize: '0.66rem', padding: '2px 7px' }}>
                 Demo
               </span>
-            )}
+            ) : null}
           </div>
 
           <nav className="dash-nav-groups">
-            {NAV_GROUPS.map((group) => (
+            {groupsToRender.map((group) => (
               <div key={group.label}>
                 <div className="dash-nav-group-label">{group.label}</div>
                 <div className="dash-nav-list">
@@ -119,13 +177,15 @@ export default function DashboardShell({ children }) {
                     const active = isActive(item);
                     return (
                       <Link
-                        key={item.href}
+                        key={item.label}
                         href={item.href}
                         className={`dash-nav-item ${active ? 'active' : ''}`}
                         onClick={() => setMobileOpen(false)}
                       >
                         <span className="dash-nav-item-left">
-                          <Icon />
+                          <span className={`dash-nav-icon-box ${item.tone || 'tone-green'}`}>
+                            <Icon size={17} strokeWidth={2.2} />
+                          </span>
                           <span>{item.label}</span>
                         </span>
                         {item.badge && <span className="dash-nav-badge">{item.badge}</span>}
@@ -190,6 +250,30 @@ export default function DashboardShell({ children }) {
 
       {/* Main Content Area */}
       <div className="dash-main-wrap">
+        {/* Super Admin Impersonation Bar when visiting another user's dashboard */}
+        {impersonatedBy && (
+          <div className="dash-impersonation-bar" role="region" aria-label="Super Admin Workspace Impersonation">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <ShieldAlert size={18} style={{ color: '#fde047', flexShrink: 0 }} />
+              <span>
+                <strong>Super Admin Visitor Mode:</strong> Viewing{' '}
+                <strong style={{ color: '#fde047' }}>{business?.name}</strong> dashboard as{' '}
+                <strong>{user?.name}</strong> ({user?.email}).
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-white btn-sm"
+                onClick={handleReturnToAdmin}
+                style={{ minHeight: 32, padding: '0 14px', fontSize: '0.8rem' }}
+              >
+                <ArrowLeftRight size={14} /> Exit Visitor Mode &amp; Return to Admin Console
+              </button>
+            </div>
+          </div>
+        )}
+
         <header className="dash-topbar">
           <div className="dash-topbar-left">
             <button
@@ -201,12 +285,28 @@ export default function DashboardShell({ children }) {
               <Menu size={20} />
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 800, fontSize: '1rem' }}>{business?.name || 'ChatFlow Workspace'}</span>
+              <span style={{ fontWeight: 800, fontSize: '1.05rem' }}>
+                {business?.name || 'ChatFlow Workspace'}
+              </span>
               {business?.industry && <span className="badge">{business.industry}</span>}
+              {isSuperAdmin && (
+                <Link
+                  href="/dashboard/admin"
+                  className="badge badge-purple"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}
+                >
+                  <Crown size={12} /> Super Admin Console
+                </Link>
+              )}
             </div>
           </div>
 
           <div className="dash-topbar-right">
+            {isSuperAdmin && pathname !== '/dashboard/admin' && (
+              <Link href="/dashboard/admin" className="btn btn-dark btn-sm">
+                <Crown size={15} /> Admin Panel
+              </Link>
+            )}
             <Link href="/dashboard/contacts?new=1" className="btn btn-outline btn-sm">
               <Plus size={15} /> Add Contact
             </Link>

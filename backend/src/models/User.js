@@ -31,6 +31,7 @@ module.exports = (sequelize, DataTypes) => {
       passwordHash: { type: DataTypes.STRING(255), allowNull: true },
       googleId: { type: DataTypes.STRING(191), allowNull: true },
       avatarUrl: { type: DataTypes.STRING(500), allowNull: true },
+      isSuperAdmin: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
       isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
       emailVerifiedAt: c.date(),
       lastLoginAt: c.date(),

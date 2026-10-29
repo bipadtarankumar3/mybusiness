@@ -19,6 +19,8 @@ const loginSchema = z.object({
 
 const DEMO_EMAIL = 'demo@chatflow.local';
 const DEMO_PASSWORD = 'Demo@12345';
+const ADMIN_EMAIL = 'admin@chatflow.local';
+const ADMIN_PASSWORD = 'Admin@12345';
 
 function LoginFormInner() {
   const router = useRouter();
@@ -86,6 +88,19 @@ function LoginFormInner() {
     }
   };
 
+  const handleOneClickAdminLogin = async () => {
+    setValue('email', ADMIN_EMAIL, { shouldValidate: true });
+    setValue('password', ADMIN_PASSWORD, { shouldValidate: true });
+    setServerError('');
+    try {
+      await login({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
+      router.push('/dashboard/admin');
+    } catch {
+      loginOfflineDemo();
+      router.push('/dashboard/admin');
+    }
+  };
+
   const handleEnterOfflinePreview = () => {
     loginOfflineDemo();
     router.push('/dashboard');
@@ -107,7 +122,7 @@ function LoginFormInner() {
         </p>
         <div className="auth-demo-actions">
           <button type="button" className="btn btn-outline btn-sm" onClick={handleFillDemo}>
-            <FlaskConical size={14} /> Fill Demo Credentials (demo@chatflow.local)
+            <FlaskConical size={14} /> Fill Demo Credentials
           </button>
           <button
             type="button"
@@ -115,7 +130,15 @@ function LoginFormInner() {
             onClick={handleOneClickDemoLogin}
             disabled={isSubmitting}
           >
-            One-Click Demo Login →
+            One-Click User Demo →
+          </button>
+          <button
+            type="button"
+            className="btn btn-dark btn-sm"
+            onClick={handleOneClickAdminLogin}
+            disabled={isSubmitting}
+          >
+            <Sparkles size={14} /> Super Admin Login →
           </button>
         </div>
       </div>

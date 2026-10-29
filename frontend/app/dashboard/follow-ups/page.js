@@ -275,7 +275,7 @@ export default function FollowUpsPage() {
                       gap: 14,
                     }}
                   >
-                    <div style={{ display: 'grid', gap: 6, maxWidth: 680 }}>
+                    <div style={{ display: 'grid', gap: 6, flex: 1, minWidth: 260 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         {isOverdue && (
                           <span className="badge badge-coral">

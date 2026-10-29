@@ -544,4 +544,84 @@ describe('ChatFlow Backend API & Integration Suite', () => {
       });
     }
   });
+
+  test('11. Super Admin Console: users list & counts, user settings, plan builder, subscriptions, and visit user dashboard (impersonation)', async () => {
+    // Non-super-admin (otherTenantAgent) is blocked from /api/v1/admin/* with 403
+    const forbiddenRes = await otherTenantAgent.get('/api/v1/admin/overview');
+    assert.equal(forbiddenRes.status, 403);
+
+    // Super Admin login (admin@chatflow.local)
+    const adminAgent = request.agent(app);
+    const adminLoginRes = await adminAgent
+      .post('/api/v1/auth/login')
+      .send({ email: 'admin@chatflow.local', password: 'Admin@12345' });
+    assert.equal(adminLoginRes.status, 200);
+    assert.equal(adminLoginRes.body.data.user.isSuperAdmin, true);
+
+    // Admin overview
+    const overviewRes = await adminAgent.get('/api/v1/admin/overview');
+    assert.equal(overviewRes.status, 200);
+    assert.ok(overviewRes.body.data.counts.totalUsers >= 5);
+    assert.ok(overviewRes.body.data.counts.totalBusinesses >= 2);
+
+    // Users list with counts and filters
+    const usersRes = await adminAgent.get('/api/v1/admin/users?status=active');
+    assert.equal(usersRes.status, 200);
+    assert.ok(usersRes.body.data.length >= 5);
+    assert.ok(usersRes.body.meta.counts.all >= 5);
+
+    // Create a new subscription plan via Super Admin Plan Builder
+    const newPlanRes = await adminAgent.post('/api/v1/admin/plans').send({
+      code: 'enterprise_plus',
+      name: 'Enterprise Plus',
+      priceMonthly: 2999,
+      priceYearly: 29990,
+      sortOrder: 6,
+      limits: {
+        contacts: 100000,
+        teamMembers: 50,
+        campaignsPerMonth: 500,
+        workflows: 200,
+        aiRepliesPerMonth: 20000,
+      },
+      features: ['Dedicated WhatsApp Solution Architect', 'Custom SLA & Webhook Priority'],
+    });
+    assert.equal(newPlanRes.status, 201);
+    assert.equal(newPlanRes.body.data.code, 'enterprise_plus');
+
+    // Update a user's settings & subscription plan via PATCH /api/v1/admin/users/:id
+    const targetUser = usersRes.body.data.find((u) => u.email === 'other@chatflow.local');
+    assert.ok(targetUser);
+    const patchUserRes = await adminAgent.patch(`/api/v1/admin/users/${targetUser.id}`).send({
+      name: 'Other Tenant Owner Updated',
+      planCode: 'enterprise_plus',
+      billingCycle: 'yearly',
+    });
+    assert.equal(patchUserRes.status, 200);
+    assert.equal(patchUserRes.body.data.name, 'Other Tenant Owner Updated');
+
+    // List all subscriptions
+    const subsRes = await adminAgent.get('/api/v1/admin/subscriptions');
+    assert.equal(subsRes.status, 200);
+    assert.ok(subsRes.body.data.length >= 2);
+
+    // Visit target user's dashboard (impersonation)
+    const impRes = await adminAgent
+      .post('/api/v1/admin/impersonate')
+      .send({ userId: targetUser.id });
+    assert.equal(impRes.status, 200);
+    assert.equal(impRes.body.data.user.email, 'other@chatflow.local');
+    assert.ok(impRes.body.data.impersonatedBy);
+
+    // Verify contacts returned now belong to Other Tenant Workspace
+    const impContacts = await adminAgent.get('/api/v1/contacts');
+    assert.equal(impContacts.status, 200);
+    assert.equal(impContacts.body.data[0].name, 'Private Tenant Customer');
+
+    // Exit Visitor Mode back to Super Admin session
+    const stopImpRes = await adminAgent.post('/api/v1/admin/stop-impersonation');
+    assert.equal(stopImpRes.status, 200);
+    assert.equal(stopImpRes.body.data.user.email, 'admin@chatflow.local');
+    assert.equal(stopImpRes.body.data.impersonatedBy, null);
+  });
 });

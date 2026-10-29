@@ -474,10 +474,9 @@
 
 .dash-content {
   flex: 1;
-  padding: clamp(18px, 3vw, 32px);
-  max-width: 1440px;
+  padding: clamp(20px, 2.2vw, 34px);
+  max-width: none;
   width: 100%;
-  margin-inline: auto;
   display: grid;
   gap: 24px;
   align-content: start;
@@ -486,6 +485,60 @@
 .dash-content.flush {
   padding: 0;
   max-width: none;
+}
+
+/* Pro Icon Badge inside Sidebar Navigation */
+.dash-nav-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  transition: transform 0.18s var(--ease), background 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+
+.dash-nav-item:hover .dash-nav-icon-box {
+  transform: scale(1.05);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.dash-nav-item.active .dash-nav-icon-box {
+  background: linear-gradient(135deg, #22d792 0%, #10b374 100%);
+  color: #04261b;
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 14px -4px rgba(22, 199, 132, 0.55);
+}
+
+.dash-nav-icon-box.tone-purple {
+  color: #c4b5fd;
+}
+.dash-nav-icon-box.tone-blue {
+  color: #93c5fd;
+}
+.dash-nav-icon-box.tone-coral {
+  color: #fda4af;
+}
+.dash-nav-icon-box.tone-yellow {
+  color: #fde047;
+}
+.dash-nav-icon-box.tone-green {
+  color: #6ee7b7;
+}
+
+.dash-impersonation-bar {
+  background: linear-gradient(90deg, #311042 0%, #4c1d95 50%, #1e1b4b 100%);
+  color: #f5f3ff;
+  padding: 10px clamp(16px, 2.5vw, 32px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(196, 181, 253, 0.25);
 }
 
 /* ---------- Page Header & Grid Layouts ---------- */

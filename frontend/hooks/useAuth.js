@@ -26,6 +26,7 @@ export function AuthProvider({ children }) {
   const router = useRouter();
   const [state, setState] = useState({
     user: null,
+    impersonatedBy: null,
     business: null,
     role: 'owner',
     plan: { code: 'free', name: 'Free' },
@@ -41,6 +42,7 @@ export function AuthProvider({ children }) {
       if (payload?.user) {
         setState({
           user: payload.user,
+          impersonatedBy: payload.impersonatedBy || null,
           business: payload.business || DEMO_SESSION.business,
           role: payload.role || 'owner',
           plan: payload.plan || { code: 'free', name: 'Free' },
@@ -159,9 +161,62 @@ export function AuthProvider({ children }) {
     }));
   }, []);
 
+  const impersonateUser = useCallback(
+    async ({ userId, businessId, fallbackTarget }) => {
+      try {
+        const res = await api.post('/admin/impersonate', { userId, businessId });
+        await refreshAuth();
+        return res?.data || res;
+      } catch (err) {
+        // Offline demo preview fallback so visiting any user dashboard works even in preview mode
+        if (fallbackTarget) {
+          setState((prev) => ({
+            ...prev,
+            user: {
+              id: fallbackTarget.id,
+              name: fallbackTarget.name,
+              email: fallbackTarget.email,
+              isSuperAdmin: true,
+            },
+            impersonatedBy: prev.impersonatedBy || {
+              id: prev.user?.id || 1,
+              name: prev.user?.name || 'Platform Admin',
+              email: prev.user?.email || 'admin@chatflow.local',
+            },
+            business: fallbackTarget.business || prev.business,
+            role: fallbackTarget.role || 'owner',
+            plan: fallbackTarget.subscription?.plan || { code: 'growth', name: 'Growth' },
+          }));
+          return fallbackTarget;
+        }
+        throw err;
+      }
+    },
+    [refreshAuth]
+  );
+
+  const stopImpersonating = useCallback(async () => {
+    try {
+      await api.post('/admin/stop-impersonation', {});
+      await refreshAuth();
+    } catch {
+      setState((prev) => ({
+        ...prev,
+        user: prev.impersonatedBy
+          ? { ...prev.impersonatedBy, isSuperAdmin: true }
+          : DEMO_SESSION.user,
+        impersonatedBy: null,
+        business: DEMO_SESSION.business,
+        role: 'owner',
+        plan: DEMO_SESSION.plan,
+      }));
+    }
+  }, [refreshAuth]);
+
   const value = useMemo(
     () => ({
       ...state,
+      isSuperAdmin: Boolean(state.user?.isSuperAdmin || state.impersonatedBy),
       isDemo: Boolean(state.business?.isDemo || state.isOfflineDemo),
       refreshAuth,
       login,
@@ -170,8 +225,21 @@ export function AuthProvider({ children }) {
       register,
       logout,
       updateBusinessState,
+      impersonateUser,
+      stopImpersonating,
     }),
-    [state, refreshAuth, login, loginWithGoogle, loginOfflineDemo, register, logout, updateBusinessState]
+    [
+      state,
+      refreshAuth,
+      login,
+      loginWithGoogle,
+      loginOfflineDemo,
+      register,
+      logout,
+      updateBusinessState,
+      impersonateUser,
+      stopImpersonating,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -184,6 +252,7 @@ export function useAuth() {
       ...DEMO_SESSION,
       loading: false,
       isOfflineDemo: false,
+      isSuperAdmin: true,
       isDemo: true,
       refreshAuth: async () => {},
       login: async () => {},
@@ -192,6 +261,8 @@ export function useAuth() {
       register: async () => {},
       logout: async () => {},
       updateBusinessState: () => {},
+      impersonateUser: async () => {},
+      stopImpersonating: async () => {},
     };
   }
   return ctx;

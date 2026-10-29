@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, requireSuperAdmin } = require('../middleware/auth');
 const { validateBody } = require('../middleware/validate');
 const {
   loginRateLimiter,
@@ -19,6 +19,7 @@ const campaignsCtrl = require('../controllers/campaignsController');
 const workflowsCtrl = require('../controllers/workflowsController');
 const analyticsBillingAiCtrl = require('../controllers/analyticsBillingAiController');
 const webhooksCtrl = require('../controllers/webhooksController');
+const adminCtrl = require('../controllers/adminController');
 
 const router = express.Router();
 
@@ -166,6 +167,52 @@ router.post(
   requireAuth,
   validateBody(analyticsBillingAiCtrl.aiCampaignCopySchema),
   analyticsBillingAiCtrl.postAiCampaignCopy
+);
+
+// Super Admin Platform Management
+router.get('/admin/overview', requireAuth, requireSuperAdmin, adminCtrl.getAdminOverview);
+router.get('/admin/users', requireAuth, requireSuperAdmin, adminCtrl.listAdminUsers);
+router.post(
+  '/admin/users',
+  requireAuth,
+  requireSuperAdmin,
+  validateBody(adminCtrl.createAdminUserSchema),
+  adminCtrl.createAdminUser
+);
+router.patch(
+  '/admin/users/:id',
+  requireAuth,
+  requireSuperAdmin,
+  validateBody(adminCtrl.updateAdminUserSchema),
+  adminCtrl.updateAdminUser
+);
+router.post('/admin/impersonate', requireAuth, requireSuperAdmin, adminCtrl.impersonateWorkspace);
+router.post('/admin/stop-impersonation', requireAuth, requireSuperAdmin, adminCtrl.stopImpersonation);
+
+router.get('/admin/plans', requireAuth, requireSuperAdmin, adminCtrl.listAdminPlans);
+router.post(
+  '/admin/plans',
+  requireAuth,
+  requireSuperAdmin,
+  validateBody(adminCtrl.createPlanSchema),
+  adminCtrl.createAdminPlan
+);
+router.patch(
+  '/admin/plans/:id',
+  requireAuth,
+  requireSuperAdmin,
+  validateBody(adminCtrl.updatePlanSchema),
+  adminCtrl.updateAdminPlan
+);
+router.delete('/admin/plans/:id', requireAuth, requireSuperAdmin, adminCtrl.deleteAdminPlan);
+
+router.get('/admin/subscriptions', requireAuth, requireSuperAdmin, adminCtrl.listAdminSubscriptions);
+router.patch(
+  '/admin/subscriptions/:id',
+  requireAuth,
+  requireSuperAdmin,
+  validateBody(adminCtrl.updateSubscriptionSchema),
+  adminCtrl.updateAdminSubscription
 );
 
 module.exports = router;
