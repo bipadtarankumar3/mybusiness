@@ -14,20 +14,35 @@ function createApp() {
   const app = express();
 
   app.set('trust proxy', 1);
-  app.use(helmet());
   app.use(
-    cors({
-      origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        const normalized = origin.replace(/\/$/, '');
-        if (env.frontendOrigins.includes(normalized) || !env.isProduction) {
-          return callback(null, true);
-        }
-        return callback(new Error('Origin not allowed by CORS'));
-      },
-      credentials: true,
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginOpenerPolicy: false,
     })
   );
+
+  const corsOptions = {
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const normalized = origin.replace(/\/$/, '');
+      if (
+        env.frontendOrigins.includes(normalized) ||
+        !env.isProduction ||
+        normalized.startsWith('http://localhost:') ||
+        normalized.startsWith('http://127.0.0.1:')
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error('Origin not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    optionsSuccessStatus: 204,
+  };
+
+  app.use(cors(corsOptions));
+  app.options('*', cors(corsOptions));
 
   if (!env.isTest) {
     app.use(morgan('dev'));

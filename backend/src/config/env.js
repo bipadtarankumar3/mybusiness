@@ -19,8 +19,8 @@ const optionalString = z
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce.number().int().positive().default(5000),
-  FRONTEND_URL: z.string().default('http://localhost:3000'),
+  PORT: z.coerce.number().int().positive().default(5050),
+  FRONTEND_URL: z.string().default('http://localhost:3000,http://127.0.0.1:3000'),
 
   DB_DIALECT: z.enum(['mysql', 'sqlite']).default('mysql'),
   DB_STORAGE: optionalString,

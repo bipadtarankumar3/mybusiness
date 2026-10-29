@@ -1,7 +1,7 @@
 /**
- * Browser API client. All requests go to same-origin `/api/v1/*`, which Next.js
- * proxies to the Express backend. Auth is an httpOnly cookie — nothing is stored
- * in localStorage.
+ * Browser API client.
+ * Requests go to same-origin `/api/v1/*` (proxied by Next.js to Express on port 5050)
+ * with automatic fallback to `http://localhost:5050/api/v1/*` with `credentials: 'include'`.
  */
 export class ApiError extends Error {
   constructor(message, { status = 0, code = 'NETWORK_ERROR', details } = {}) {
@@ -12,6 +12,9 @@ export class ApiError extends Error {
     this.details = details;
   }
 }
+
+const DIRECT_BACKEND_BASE =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/api/v1';
 
 function buildQuery(params) {
   if (!params) return '';
@@ -25,18 +28,34 @@ function buildQuery(params) {
 }
 
 export async function apiRequest(path, { method = 'GET', body, params, signal } = {}) {
+  const query = buildQuery(params);
+  const fetchOpts = {
+    method,
+    signal,
+    credentials: 'include',
+    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  };
+
   let res;
   try {
-    res = await fetch(`/api/v1${path}${buildQuery(params)}`, {
-      method,
-      signal,
-      credentials: 'same-origin',
-      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    res = await fetch(`/api/v1${path}${query}`, fetchOpts);
+    // If Next.js rewrite hit macOS ControlCenter on old port 5000 (403/502 with non-JSON body), retry direct 5050
+    if (res.status === 403 || res.status === 502 || res.status === 504) {
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        res = await fetch(`${DIRECT_BACKEND_BASE}${path}${query}`, fetchOpts);
+      }
+    }
   } catch (err) {
     if (err?.name === 'AbortError') throw err;
-    throw new ApiError('Unable to reach the server. Please check your connection or that the API is running.');
+    try {
+      res = await fetch(`${DIRECT_BACKEND_BASE}${path}${query}`, fetchOpts);
+    } catch {
+      throw new ApiError(
+        'Unable to reach the server. Please check your connection or that the API is running.'
+      );
+    }
   }
 
   let payload = null;
@@ -52,8 +71,14 @@ export async function apiRequest(path, { method = 'GET', body, params, signal } 
   if (!res.ok) {
     const e = payload?.error || {};
     const fallback =
-      res.status >= 500 ? 'The server is unavailable right now. Please try again shortly.' : 'Request failed.';
-    throw new ApiError(e.message || fallback, { status: res.status, code: e.code || 'HTTP_ERROR', details: e.details });
+      res.status >= 500
+        ? 'The server is unavailable right now. Please try again shortly.'
+        : 'Request failed.';
+    throw new ApiError(e.message || fallback, {
+      status: res.status,
+      code: e.code || 'HTTP_ERROR',
+      details: e.details,
+    });
   }
   return payload ?? {};
 }
@@ -78,4 +103,3 @@ export function applyServerErrors(err, setError) {
   });
   return applied;
 }
-

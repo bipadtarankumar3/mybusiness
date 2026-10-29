@@ -4,6 +4,7 @@ node_modules/
 
 # Next.js build output
 frontend/.next/
+frontend/.next-prod/
 frontend/out/
 
 # Environment variables & secrets (keep .env.example)
