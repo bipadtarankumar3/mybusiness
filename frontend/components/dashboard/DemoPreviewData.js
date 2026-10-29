@@ -9,7 +9,7 @@ export const DEMO_SESSION = {
     id: 1,
     name: 'Aarav Mehta',
     email: 'demo@chatflow.local',
-    isSuperAdmin: true,
+    isSuperAdmin: false,
   },
   impersonatedBy: null,
   business: {
@@ -35,6 +35,29 @@ export const DEMO_SESSION = {
   plan: {
     code: 'growth',
     name: 'Growth',
+  },
+};
+
+export const DEMO_ADMIN_SESSION = {
+  user: {
+    id: 99,
+    name: 'Vikram Singh (Platform Admin)',
+    email: 'admin@chatflow.local',
+    isSuperAdmin: true,
+  },
+  impersonatedBy: null,
+  business: {
+    id: 1,
+    name: 'ChatFlow Super Admin Platform',
+    slug: 'chatflow-super-admin',
+    isDemo: false,
+    industry: 'SaaS Platform Control',
+    timezone: 'Asia/Kolkata',
+  },
+  role: 'superadmin',
+  plan: {
+    code: 'business',
+    name: 'Super Admin',
   },
 };
 

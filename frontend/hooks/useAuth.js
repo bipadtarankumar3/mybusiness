@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
-import { DEMO_SESSION } from '@/components/dashboard/DemoPreviewData';
+import { DEMO_SESSION, DEMO_ADMIN_SESSION } from '@/components/dashboard/DemoPreviewData';
 
 const AuthContext = createContext(null);
 
@@ -12,9 +12,19 @@ function hasOfflineDemoCookie() {
   return document.cookie.split(';').some((c) => c.trim().startsWith('cf_session=demo-preview-mode'));
 }
 
+function hasOfflineAdminCookie() {
+  if (typeof document === 'undefined') return false;
+  return document.cookie.split(';').some((c) => c.trim().startsWith('cf_session=admin-preview-mode'));
+}
+
 export function enableOfflineDemoCookie() {
   if (typeof document === 'undefined') return;
   document.cookie = 'cf_session=demo-preview-mode; path=/; max-age=86400; SameSite=Lax';
+}
+
+export function enableOfflineAdminCookie() {
+  if (typeof document === 'undefined') return;
+  document.cookie = 'cf_session=admin-preview-mode; path=/; max-age=86400; SameSite=Lax';
 }
 
 export function clearOfflineDemoCookie() {
@@ -53,18 +63,31 @@ export function AuthProvider({ children }) {
         return payload;
       }
     } catch (err) {
-      // If user explicitly activated offline demo preview or backend is unreachable with demo session cookie
-      if (
-        hasOfflineDemoCookie() ||
-        (err instanceof ApiError && (err.status === 0 || err.status >= 502))
-      ) {
+      // If user explicitly activated offline admin/demo preview or backend is unreachable with demo session cookie
+      if (hasOfflineAdminCookie()) {
         setState({
-          ...DEMO_SESSION,
+          ...DEMO_ADMIN_SESSION,
           loading: false,
           isOfflineDemo: true,
           error: null,
         });
-        return DEMO_SESSION;
+        return DEMO_ADMIN_SESSION;
+      }
+
+      if (
+        hasOfflineDemoCookie() ||
+        (err instanceof ApiError && (err.status === 0 || err.status >= 502))
+      ) {
+        const isOnAdminPage =
+          typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard/admin');
+        const targetSession = isOnAdminPage ? DEMO_ADMIN_SESSION : DEMO_SESSION;
+        setState({
+          ...targetSession,
+          loading: false,
+          isOfflineDemo: true,
+          error: null,
+        });
+        return targetSession;
       }
 
       if (err instanceof ApiError && err.status === 401) {
@@ -109,6 +132,16 @@ export function AuthProvider({ children }) {
     enableOfflineDemoCookie();
     setState({
       ...DEMO_SESSION,
+      loading: false,
+      isOfflineDemo: true,
+      error: null,
+    });
+  }, []);
+
+  const loginOfflineAdmin = useCallback(() => {
+    enableOfflineAdminCookie();
+    setState({
+      ...DEMO_ADMIN_SESSION,
       loading: false,
       isOfflineDemo: true,
       error: null,
@@ -204,11 +237,11 @@ export function AuthProvider({ children }) {
         ...prev,
         user: prev.impersonatedBy
           ? { ...prev.impersonatedBy, isSuperAdmin: true }
-          : DEMO_SESSION.user,
+          : DEMO_ADMIN_SESSION.user,
         impersonatedBy: null,
-        business: DEMO_SESSION.business,
-        role: 'owner',
-        plan: DEMO_SESSION.plan,
+        business: DEMO_ADMIN_SESSION.business,
+        role: 'superadmin',
+        plan: DEMO_ADMIN_SESSION.plan,
       }));
     }
   }, [refreshAuth]);
@@ -222,6 +255,7 @@ export function AuthProvider({ children }) {
       login,
       loginWithGoogle,
       loginOfflineDemo,
+      loginOfflineAdmin,
       register,
       logout,
       updateBusinessState,
@@ -234,6 +268,7 @@ export function AuthProvider({ children }) {
       login,
       loginWithGoogle,
       loginOfflineDemo,
+      loginOfflineAdmin,
       register,
       logout,
       updateBusinessState,

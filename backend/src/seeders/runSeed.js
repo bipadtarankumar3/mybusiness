@@ -169,8 +169,8 @@ async function seedDemoWorkspace(models) {
 
   const existingDemo = await User.findOne({ where: { email: 'demo@chatflow.local' } });
   if (existingDemo) {
-    if (!existingDemo.isSuperAdmin) {
-      await existingDemo.update({ isSuperAdmin: true });
+    if (existingDemo.isSuperAdmin) {
+      await existingDemo.update({ isSuperAdmin: false });
     }
     const existingAdmin = await User.findOne({ where: { email: 'admin@chatflow.local' } });
     if (!existingAdmin) {
@@ -216,7 +216,7 @@ async function seedDemoWorkspace(models) {
     name: 'Rajesh Sharma',
     email: 'demo@chatflow.local',
     passwordHash,
-    isSuperAdmin: true,
+    isSuperAdmin: false,
     isActive: true,
     emailVerifiedAt: daysAgo(60),
     lastLoginAt: hoursAgo(1),

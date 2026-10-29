@@ -94,10 +94,15 @@ function AdminConsoleInner() {
 
   useEffect(() => {
     const t = searchParams.get('tab');
-    if (t && ['users', 'plans', 'subscriptions'].includes(t)) {
+    if (t && ['overview', 'users', 'visit', 'plans', 'subscriptions', 'settings'].includes(t)) {
       setActiveTab(t);
     }
   }, [searchParams]);
+
+  const selectAdminTab = (tabKey) => {
+    setActiveTab(tabKey);
+    router.replace(`/dashboard/admin?tab=${tabKey}`, { scroll: false });
+  };
 
   const showNotice = (msg) => {
     setToast(msg);
@@ -669,9 +674,19 @@ function AdminConsoleInner() {
           <button
             type="button"
             role="tab"
+            aria-selected={activeTab === 'overview'}
+            className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => selectAdminTab('overview')}
+          >
+            <Building2 size={15} style={{ display: 'inline', marginRight: 6, verticalAlign: 'text-bottom' }} />
+            Platform Overview
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={activeTab === 'users'}
             className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
+            onClick={() => selectAdminTab('users')}
           >
             <Users size={15} style={{ display: 'inline', marginRight: 6, verticalAlign: 'text-bottom' }} />
             Users &amp; Workspaces ({userCounts.all})
@@ -679,9 +694,19 @@ function AdminConsoleInner() {
           <button
             type="button"
             role="tab"
+            aria-selected={activeTab === 'visit'}
+            className={`tab-btn ${activeTab === 'visit' ? 'active' : ''}`}
+            onClick={() => selectAdminTab('visit')}
+          >
+            <Eye size={15} style={{ display: 'inline', marginRight: 6, verticalAlign: 'text-bottom' }} />
+            Visit User Dashboard
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={activeTab === 'plans'}
             className={`tab-btn ${activeTab === 'plans' ? 'active' : ''}`}
-            onClick={() => setActiveTab('plans')}
+            onClick={() => selectAdminTab('plans')}
           >
             <Layers size={15} style={{ display: 'inline', marginRight: 6, verticalAlign: 'text-bottom' }} />
             Subscription Plans ({plans.length})
@@ -691,13 +716,313 @@ function AdminConsoleInner() {
             role="tab"
             aria-selected={activeTab === 'subscriptions'}
             className={`tab-btn ${activeTab === 'subscriptions' ? 'active' : ''}`}
-            onClick={() => setActiveTab('subscriptions')}
+            onClick={() => selectAdminTab('subscriptions')}
           >
             <BadgeIndianRupee size={15} style={{ display: 'inline', marginRight: 6, verticalAlign: 'text-bottom' }} />
-            All Subscriptions List ({filteredSubscriptions.length})
+            All Subscriptions ({filteredSubscriptions.length})
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'settings'}
+            className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => selectAdminTab('settings')}
+          >
+            <Settings2 size={15} style={{ display: 'inline', marginRight: 6, verticalAlign: 'text-bottom' }} />
+            User Access &amp; Settings
           </button>
         </div>
       </div>
+
+      {/* ==================== TAB 0: PLATFORM OVERVIEW ==================== */}
+      {activeTab === 'overview' && (
+        <div className="dash-grid-2">
+          <section className="panel-card">
+            <div className="panel-head">
+              <div>
+                <h3>Plan Subscriber Distribution</h3>
+                <p>Active workspaces grouped by subscription tier and monthly revenue contribution.</p>
+              </div>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => selectAdminTab('plans')}>
+                Manage Plans →
+              </button>
+            </div>
+            <div className="panel-body" style={{ display: 'grid', gap: 12 }}>
+              {plans.map((p) => {
+                const count = subscriptions.filter((s) => (s.plan?.code || 'free') === p.code).length;
+                return (
+                  <div
+                    key={p.code}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '12px 16px',
+                      borderRadius: 'var(--r-md)',
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface-2)',
+                    }}
+                  >
+                    <div>
+                      <strong style={{ fontSize: '0.95rem' }}>{p.name} Plan</strong>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                        {p.priceMonthly !== null ? `${formatINR(p.priceMonthly)} / month` : 'Custom Enterprise'}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span className="badge badge-purple">{count} Workspaces</span>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => openEditPlanModal(p)}
+                      >
+                        <Edit3 size={14} /> Edit
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="panel-card">
+            <div className="panel-head">
+              <div>
+                <h3>Quick Tenant Workspace Launcher</h3>
+                <p>Enter any user’s live dashboard with one click to inspect their CRM, inbox, or campaigns.</p>
+              </div>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => selectAdminTab('users')}>
+                Full Directory →
+              </button>
+            </div>
+            <div className="panel-body" style={{ display: 'grid', gap: 12 }}>
+              {users.slice(0, 5).map((u) => (
+                <div
+                  key={u.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '12px 16px',
+                    borderRadius: 'var(--r-md)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>
+                      {u.business?.name || `${u.name}'s Workspace`}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                      {u.name} ({u.email}) • {u.subscription?.plan?.name || 'Free'} Plan
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() => handleVisitUserDashboard(u)}
+                    >
+                      <Eye size={14} /> Visit Dashboard
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => openEditUserModal(u)}
+                    >
+                      <Settings2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* ==================== TAB: VISIT USER DASHBOARD (VISUAL LAUNCHER) ==================== */}
+      {activeTab === 'visit' && (
+        <section className="panel-card">
+          <div className="panel-head">
+            <div>
+              <h3>Visit Any User’s Live Dashboard</h3>
+              <p>
+                Select any tenant workspace below to switch into their User Dashboard with their full User Menu,
+                CRM contacts, inbox conversations, and automation flows.
+              </p>
+            </div>
+          </div>
+          <div className="panel-body">
+            <div className="dash-grid-3">
+              {users.map((u) => (
+                <div
+                  key={u.id}
+                  style={{
+                    border: '1px solid var(--border-strong)',
+                    borderRadius: 'var(--r-xl)',
+                    padding: 20,
+                    background: '#fff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: 16,
+                  }}
+                >
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <div>
+                        <span className="badge badge-green" style={{ marginBottom: 6 }}>
+                          {u.subscription?.plan?.name || 'Free'} Plan
+                        </span>
+                        <h4 style={{ fontSize: '1.1rem', fontWeight: 800 }}>
+                          {u.business?.name || `${u.name}'s Workspace`}
+                        </h4>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                          {u.business?.industry || 'Indian SMB'}
+                        </div>
+                      </div>
+                      <span className="badge" style={{ textTransform: 'capitalize' }}>
+                        {u.role}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 'var(--r-md)',
+                        background: 'var(--surface-2)',
+                        fontSize: '0.82rem',
+                      }}
+                    >
+                      <div>
+                        <strong>User:</strong> {u.name}
+                      </div>
+                      <div style={{ color: 'var(--muted)' }}>{u.email}</div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      <span className="badge">
+                        <Users size={11} /> {u.counts?.contacts ?? 0} Contacts
+                      </span>
+                      <span className="badge">
+                        <MessageSquare size={11} /> {u.counts?.conversations ?? 0} Chats
+                      </span>
+                      <span className="badge">
+                        <Megaphone size={11} /> {u.counts?.campaigns ?? 0} Campaigns
+                      </span>
+                      <span className="badge">
+                        <Workflow size={11} /> {u.counts?.workflows ?? 0} Flows
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      style={{ flex: 1 }}
+                      onClick={() => handleVisitUserDashboard(u)}
+                    >
+                      <Eye size={15} /> Visit User Dashboard →
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => openEditUserModal(u)}
+                      title="User Settings"
+                    >
+                      <Settings2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ==================== TAB: USER ACCESS & SETTINGS ==================== */}
+      {activeTab === 'settings' && (
+        <section className="panel-card">
+          <div className="panel-head">
+            <div>
+              <h3>Global User Access, Roles &amp; Account Settings ({users.length})</h3>
+              <p>
+                Configure user permissions, toggle active/suspended status, grant Super Admin access, or open full
+                account &amp; password settings.
+              </p>
+            </div>
+            <button type="button" className="btn btn-primary btn-sm" onClick={openCreateUserModal}>
+              <Plus size={15} /> Add New User
+            </button>
+          </div>
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Business Workspace</th>
+                  <th>Workspace Role</th>
+                  <th>Account Status</th>
+                  <th>Super Admin Access</th>
+                  <th style={{ textAlign: 'right' }}>Configure</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id}>
+                    <td>
+                      <div style={{ fontWeight: 700 }}>{u.name}</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>{u.email}</div>
+                    </td>
+                    <td>{u.business?.name || '—'}</td>
+                    <td>
+                      <span className="badge" style={{ textTransform: 'capitalize' }}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td>
+                      {u.isActive ? (
+                        <span className="badge badge-green">Active</span>
+                      ) : (
+                        <span className="badge badge-coral">Suspended</span>
+                      )}
+                    </td>
+                    <td>
+                      {u.isSuperAdmin ? (
+                        <span className="badge badge-purple">
+                          <Crown size={11} /> Super Admin
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Standard User</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 8 }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => openEditUserModal(u)}
+                        >
+                          <Settings2 size={14} /> Edit Settings &amp; Plan
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: u.isActive ? 'var(--danger)' : 'var(--green-deep)' }}
+                          onClick={() => handleQuickToggleUserActive(u)}
+                        >
+                          {u.isActive ? 'Suspend' : 'Activate'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* ==================== TAB 1: USERS & WORKSPACES LIST ==================== */}
       {activeTab === 'users' && (
@@ -1654,3 +1979,4 @@ export default function AdminConsolePage() {
     </Suspense>
   );
 }
+

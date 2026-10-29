@@ -26,7 +26,7 @@ function LoginFormInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextUrl = searchParams.get('next') || '/dashboard';
-  const { login, loginOfflineDemo } = useAuth();
+  const { login, loginOfflineDemo, loginOfflineAdmin } = useAuth();
 
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState('');
@@ -50,8 +50,12 @@ function LoginFormInner() {
     setServerError('');
     setCanLaunchOfflineDemo(false);
     try {
-      await login(values);
-      router.push(nextUrl);
+      const session = await login(values);
+      if (session?.user?.isSuperAdmin || values.email.toLowerCase() === ADMIN_EMAIL) {
+        router.push('/dashboard/admin');
+      } else {
+        router.push(nextUrl);
+      }
     } catch (err) {
       if (!applyServerErrors(err, setError)) {
         const isNetworkOrServerDown =
@@ -96,7 +100,7 @@ function LoginFormInner() {
       await login({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
       router.push('/dashboard/admin');
     } catch {
-      loginOfflineDemo();
+      loginOfflineAdmin();
       router.push('/dashboard/admin');
     }
   };

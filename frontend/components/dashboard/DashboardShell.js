@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Logo from '@/components/brand/Logo';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -29,9 +29,15 @@ import {
   Layers,
   BadgeIndianRupee,
   ArrowLeftRight,
+  Eye,
+  Sliders,
+  ShieldCheck,
 } from 'lucide-react';
 
-const NAV_GROUPS = [
+/**
+ * USER WORKSPACE MENU — Shown to regular business users (and when Super Admin visits a user's workspace)
+ */
+const USER_NAV_GROUPS = [
   {
     label: 'Workspace',
     items: [
@@ -61,31 +67,120 @@ const NAV_GROUPS = [
   },
 ];
 
-const SUPER_ADMIN_GROUP = {
-  label: 'Super Admin Console',
-  items: [
-    {
-      label: 'Users & Workspaces',
-      href: '/dashboard/admin',
-      icon: Crown,
-      tone: 'tone-yellow',
-      badge: 'Pro Admin',
-      exact: true,
-    },
-    {
-      label: 'Plans & Subscriptions',
-      href: '/dashboard/admin?tab=plans',
-      icon: Layers,
-      tone: 'tone-purple',
-    },
-    {
-      label: 'All Subscriptions',
-      href: '/dashboard/admin?tab=subscriptions',
-      icon: BadgeIndianRupee,
-      tone: 'tone-green',
-    },
-  ],
-};
+/**
+ * SUPER ADMIN MENU — Completely separate sidebar navigation shown exclusively in the Super Admin Console
+ */
+const ADMIN_NAV_GROUPS = [
+  {
+    label: 'Platform Administration',
+    items: [
+      {
+        label: 'Platform Overview',
+        href: '/dashboard/admin?tab=overview',
+        tabKey: 'overview',
+        icon: LayoutDashboard,
+        tone: 'tone-green',
+        badge: 'Live',
+      },
+      {
+        label: 'Users & Workspaces',
+        href: '/dashboard/admin?tab=users',
+        tabKey: 'users',
+        icon: Users,
+        tone: 'tone-blue',
+        badge: 'Directory',
+      },
+      {
+        label: 'Visit User Dashboard',
+        href: '/dashboard/admin?tab=visit',
+        tabKey: 'visit',
+        icon: Eye,
+        tone: 'tone-purple',
+        badge: 'Inspect',
+      },
+    ],
+  },
+  {
+    label: 'Plans & Subscriptions',
+    items: [
+      {
+        label: 'Subscription Plans',
+        href: '/dashboard/admin?tab=plans',
+        tabKey: 'plans',
+        icon: Layers,
+        tone: 'tone-purple',
+        badge: 'Builder',
+      },
+      {
+        label: 'All Subscriptions',
+        href: '/dashboard/admin?tab=subscriptions',
+        tabKey: 'subscriptions',
+        icon: BadgeIndianRupee,
+        tone: 'tone-green',
+      },
+    ],
+  },
+  {
+    label: 'Access & Governance',
+    items: [
+      {
+        label: 'User Access & Settings',
+        href: '/dashboard/admin?tab=settings',
+        tabKey: 'settings',
+        icon: Sliders,
+        tone: 'tone-yellow',
+      },
+    ],
+  },
+];
+
+function SidebarNavGroups({ isAdminMenuMode, pathname, onCloseMobile }) {
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get('tab') || 'users';
+
+  const groupsToRender = isAdminMenuMode ? ADMIN_NAV_GROUPS : USER_NAV_GROUPS;
+
+  const isActive = (item) => {
+    if (isAdminMenuMode && item.tabKey) {
+      return pathname.startsWith('/dashboard/admin') && currentTab === item.tabKey;
+    }
+    const cleanHref = item.href.split('?')[0];
+    if (item.exact) return pathname === cleanHref;
+    return pathname === cleanHref || pathname.startsWith(`${cleanHref}/`);
+  };
+
+  return (
+    <nav className="dash-nav-groups">
+      {groupsToRender.map((group) => (
+        <div key={group.label}>
+          <div className="dash-nav-group-label">{group.label}</div>
+          <div className="dash-nav-list">
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item);
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`dash-nav-item ${active ? 'active' : ''}`}
+                  onClick={onCloseMobile}
+                >
+                  <span className="dash-nav-item-left">
+                    <span className={`dash-nav-icon-box ${item.tone || 'tone-green'}`}>
+                      <Icon size={17} strokeWidth={2.2} />
+                    </span>
+                    <span>{item.label}</span>
+                  </span>
+                  {item.badge && <span className="dash-nav-badge">{item.badge}</span>}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </nav>
+  );
+}
 
 export default function DashboardShell({ children }) {
   const pathname = usePathname();
@@ -105,6 +200,7 @@ export default function DashboardShell({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isFlushInbox = pathname === '/dashboard/inbox';
+  const isAdminMenuMode = pathname.startsWith('/dashboard/admin');
 
   const initials = (user?.name || 'CF')
     .split(' ')
@@ -113,17 +209,9 @@ export default function DashboardShell({ children }) {
     .slice(0, 2)
     .toUpperCase();
 
-  const isActive = (item) => {
-    const cleanHref = item.href.split('?')[0];
-    if (item.exact) return pathname === cleanHref;
-    return pathname === cleanHref || pathname.startsWith(`${cleanHref}/`);
-  };
-
-  const groupsToRender = isSuperAdmin ? [SUPER_ADMIN_GROUP, ...NAV_GROUPS] : NAV_GROUPS;
-
   const handleReturnToAdmin = async () => {
     await stopImpersonating();
-    router.push('/dashboard/admin');
+    router.push('/dashboard/admin?tab=users');
   };
 
   return (
@@ -132,7 +220,7 @@ export default function DashboardShell({ children }) {
       <aside className={`dash-sidebar ${mobileOpen ? 'mobile-open' : ''}`} aria-label="Dashboard navigation">
         <div>
           <div className="dash-sidebar-brand">
-            <Logo href="/dashboard" light size={32} />
+            <Logo href={isAdminMenuMode ? '/dashboard/admin' : '/dashboard'} light size={32} />
             <button
               type="button"
               className="btn btn-ghost btn-sm"
@@ -144,58 +232,90 @@ export default function DashboardShell({ children }) {
             </button>
           </div>
 
-          <div className="dash-tenant-pill">
-            <div className="dash-tenant-info">
-              <div className="dash-tenant-name">{business?.name || 'My Business'}</div>
-              <div className="dash-tenant-meta">
-                <span>{plan?.name || 'Free'} Plan</span>
-                <span>•</span>
-                <span style={{ textTransform: 'capitalize' }}>{role || 'owner'}</span>
+          {isAdminMenuMode ? (
+            <div
+              className="dash-tenant-pill"
+              style={{
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(22, 199, 132, 0.14))',
+                borderColor: 'rgba(167, 139, 250, 0.35)',
+              }}
+            >
+              <div className="dash-tenant-info">
+                <div className="dash-tenant-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Crown size={14} style={{ color: '#fde047' }} /> Super Admin Console
+                </div>
+                <div className="dash-tenant-meta">
+                  <span>All Workspaces</span>
+                  <span>•</span>
+                  <span>Platform Control</span>
+                </div>
               </div>
-            </div>
-            {isSuperAdmin ? (
               <span
                 className="badge badge-purple"
                 style={{ fontSize: '0.65rem', padding: '2px 7px', background: '#4c1d95', color: '#ede9fe' }}
               >
                 Admin
               </span>
-            ) : isDemo ? (
-              <span className="badge badge-demo" style={{ fontSize: '0.66rem', padding: '2px 7px' }}>
-                Demo
-              </span>
-            ) : null}
-          </div>
-
-          <nav className="dash-nav-groups">
-            {groupsToRender.map((group) => (
-              <div key={group.label}>
-                <div className="dash-nav-group-label">{group.label}</div>
-                <div className="dash-nav-list">
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(item);
-                    return (
-                      <Link
-                        key={item.label}
-                        href={item.href}
-                        className={`dash-nav-item ${active ? 'active' : ''}`}
-                        onClick={() => setMobileOpen(false)}
-                      >
-                        <span className="dash-nav-item-left">
-                          <span className={`dash-nav-icon-box ${item.tone || 'tone-green'}`}>
-                            <Icon size={17} strokeWidth={2.2} />
-                          </span>
-                          <span>{item.label}</span>
-                        </span>
-                        {item.badge && <span className="dash-nav-badge">{item.badge}</span>}
-                      </Link>
-                    );
-                  })}
+            </div>
+          ) : (
+            <div className="dash-tenant-pill">
+              <div className="dash-tenant-info">
+                <div className="dash-tenant-name">{business?.name || 'My Business'}</div>
+                <div className="dash-tenant-meta">
+                  <span>{plan?.name || 'Free'} Plan</span>
+                  <span>•</span>
+                  <span style={{ textTransform: 'capitalize' }}>{role || 'owner'}</span>
                 </div>
               </div>
-            ))}
-          </nav>
+              {impersonatedBy ? (
+                <span
+                  className="badge badge-purple"
+                  style={{ fontSize: '0.65rem', padding: '2px 7px', background: '#4c1d95', color: '#ede9fe' }}
+                >
+                  Visiting
+                </span>
+              ) : isDemo ? (
+                <span className="badge badge-demo" style={{ fontSize: '0.66rem', padding: '2px 7px' }}>
+                  Demo
+                </span>
+              ) : null}
+            </div>
+          )}
+
+          {/* If Super Admin is currently visiting a User Workspace, show quick button back to Admin Menu */}
+          {!isAdminMenuMode && (isSuperAdmin || impersonatedBy) && (
+            <div style={{ marginBottom: 14 }}>
+              <button
+                type="button"
+                onClick={handleReturnToAdmin}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '9px 12px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(167, 139, 250, 0.45)',
+                  background: 'rgba(109, 40, 217, 0.32)',
+                  color: '#f5f3ff',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                <Crown size={15} style={{ color: '#fde047' }} /> ← Return to Super Admin Menu
+              </button>
+            </div>
+          )}
+
+          <Suspense fallback={<div style={{ height: 320 }} />}>
+            <SidebarNavGroups
+              isAdminMenuMode={isAdminMenuMode}
+              pathname={pathname}
+              onCloseMobile={() => setMobileOpen(false)}
+            />
+          </Suspense>
         </div>
 
         <div className="dash-sidebar-footer">
@@ -213,7 +333,7 @@ export default function DashboardShell({ children }) {
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {user?.name || 'Demo Owner'}
+                  {user?.name || (isAdminMenuMode ? 'Platform Admin' : 'Demo Owner')}
                 </div>
                 <div
                   style={{
@@ -224,7 +344,7 @@ export default function DashboardShell({ children }) {
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {user?.email || 'demo@chatflow.local'}
+                  {user?.email || (isAdminMenuMode ? 'admin@chatflow.local' : 'demo@chatflow.local')}
                 </div>
               </div>
             </div>
@@ -251,13 +371,13 @@ export default function DashboardShell({ children }) {
       {/* Main Content Area */}
       <div className="dash-main-wrap">
         {/* Super Admin Impersonation Bar when visiting another user's dashboard */}
-        {impersonatedBy && (
+        {impersonatedBy && !isAdminMenuMode && (
           <div className="dash-impersonation-bar" role="region" aria-label="Super Admin Workspace Impersonation">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <ShieldAlert size={18} style={{ color: '#fde047', flexShrink: 0 }} />
               <span>
                 <strong>Super Admin Visitor Mode:</strong> Viewing{' '}
-                <strong style={{ color: '#fde047' }}>{business?.name}</strong> dashboard as{' '}
+                <strong style={{ color: '#fde047' }}>{business?.name}</strong> User Dashboard as{' '}
                 <strong>{user?.name}</strong> ({user?.email}).
               </span>
             </div>
@@ -284,42 +404,59 @@ export default function DashboardShell({ children }) {
             >
               <Menu size={20} />
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 800, fontSize: '1.05rem' }}>
-                {business?.name || 'ChatFlow Workspace'}
-              </span>
-              {business?.industry && <span className="badge">{business.industry}</span>}
-              {isSuperAdmin && (
-                <Link
-                  href="/dashboard/admin"
-                  className="badge badge-purple"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}
-                >
-                  <Crown size={12} /> Super Admin Console
-                </Link>
-              )}
-            </div>
+
+            {isAdminMenuMode ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 800, fontSize: '1.05rem', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <ShieldCheck size={18} style={{ color: '#7c3aed' }} /> ChatFlow Super Admin Portal
+                </span>
+                <span className="badge badge-purple">Global Platform Admin</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 800, fontSize: '1.05rem' }}>
+                  {business?.name || 'ChatFlow Workspace'}
+                </span>
+                {business?.industry && <span className="badge">{business.industry}</span>}
+              </div>
+            )}
           </div>
 
           <div className="dash-topbar-right">
-            {isSuperAdmin && pathname !== '/dashboard/admin' && (
-              <Link href="/dashboard/admin" className="btn btn-dark btn-sm">
-                <Crown size={15} /> Admin Panel
-              </Link>
+            {isAdminMenuMode ? (
+              <>
+                <Link href="/dashboard/admin?tab=users" className="btn btn-outline btn-sm">
+                  <Users size={15} /> Users List
+                </Link>
+                <Link href="/dashboard/admin?tab=plans" className="btn btn-primary btn-sm">
+                  <Layers size={15} /> Manage Plans
+                </Link>
+                <Link href="/" className="btn btn-ghost btn-sm" title="View Public Site">
+                  <ExternalLink size={15} />
+                </Link>
+              </>
+            ) : (
+              <>
+                {(isSuperAdmin || impersonatedBy) && (
+                  <button type="button" className="btn btn-dark btn-sm" onClick={handleReturnToAdmin}>
+                    <Crown size={15} /> Super Admin Console
+                  </button>
+                )}
+                <Link href="/dashboard/contacts?new=1" className="btn btn-outline btn-sm">
+                  <Plus size={15} /> Add Contact
+                </Link>
+                <Link href="/dashboard/campaigns/new" className="btn btn-primary btn-sm">
+                  <Megaphone size={15} /> New Campaign
+                </Link>
+                <Link href="/" className="btn btn-ghost btn-sm" title="View Public Site">
+                  <ExternalLink size={15} />
+                </Link>
+              </>
             )}
-            <Link href="/dashboard/contacts?new=1" className="btn btn-outline btn-sm">
-              <Plus size={15} /> Add Contact
-            </Link>
-            <Link href="/dashboard/campaigns/new" className="btn btn-primary btn-sm">
-              <Megaphone size={15} /> New Campaign
-            </Link>
-            <Link href="/" className="btn btn-ghost btn-sm" title="View Public Site">
-              <ExternalLink size={15} />
-            </Link>
           </div>
         </header>
 
-        {isDemo && (
+        {!isAdminMenuMode && isDemo && (
           <div className="dash-Demo-banner" role="status">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <FlaskConical size={16} />
