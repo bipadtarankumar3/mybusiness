@@ -7,7 +7,7 @@ import Modal from '@/components/ui/Modal';
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
-export default function GoogleAuthButton({ redirectTo = '/dashboard', label = 'Continue with Google' }) {
+export default function GoogleAuthButton({ redirectTo = '/user/dashboard', label = 'Continue with Google' }) {
   const router = useRouter();
   const { loginWithGoogle, loginOfflineDemo } = useAuth();
   const googleBtnRef = useRef(null);
@@ -85,7 +85,7 @@ export default function GoogleAuthButton({ redirectTo = '/dashboard', label = 'C
       if (err?.status === 0 || err?.code === 'NETWORK_ERROR') {
         loginOfflineDemo();
         setShowDevModal(false);
-        router.push('/dashboard');
+        router.push('/user/dashboard');
         return;
       }
       setError(err?.message || 'Could not complete Google Sign-In');

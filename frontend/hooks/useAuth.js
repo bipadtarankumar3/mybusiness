@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
-import { DEMO_SESSION, DEMO_ADMIN_SESSION } from '@/components/dashboard/DemoPreviewData';
+import { DEMO_SESSION, DEMO_ADMIN_SESSION } from '@/lib/DemoPreviewData';
 
 const AuthContext = createContext(null);
 
@@ -79,7 +79,7 @@ export function AuthProvider({ children }) {
         (err instanceof ApiError && (err.status === 0 || err.status >= 502))
       ) {
         const isOnAdminPage =
-          typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard/admin');
+          typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
         const targetSession = isOnAdminPage ? DEMO_ADMIN_SESSION : DEMO_SESSION;
         setState({
           ...targetSession,

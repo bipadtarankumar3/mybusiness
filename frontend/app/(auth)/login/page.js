@@ -25,7 +25,7 @@ const ADMIN_PASSWORD = 'Admin@12345';
 function LoginFormInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextUrl = searchParams.get('next') || '/dashboard';
+  const nextUrl = searchParams.get('next') || '/user/dashboard';
   const { login, loginOfflineDemo, loginOfflineAdmin } = useAuth();
 
   const [showPassword, setShowPassword] = useState(false);
@@ -52,7 +52,7 @@ function LoginFormInner() {
     try {
       const session = await login(values);
       if (session?.user?.isSuperAdmin || values.email.toLowerCase() === ADMIN_EMAIL) {
-        router.push('/dashboard/admin');
+        router.push('/admin/dashboard');
       } else {
         router.push(nextUrl);
       }
@@ -84,11 +84,11 @@ function LoginFormInner() {
     setServerError('');
     try {
       await login({ email: DEMO_EMAIL, password: DEMO_PASSWORD });
-      router.push(nextUrl);
+      router.push('/user/dashboard');
     } catch {
       // Fallback cleanly to interactive offline demo mode if backend is not running during preview
       loginOfflineDemo();
-      router.push('/dashboard');
+      router.push('/user/dashboard');
     }
   };
 
@@ -98,16 +98,16 @@ function LoginFormInner() {
     setServerError('');
     try {
       await login({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
-      router.push('/dashboard/admin');
+      router.push('/admin/dashboard');
     } catch {
       loginOfflineAdmin();
-      router.push('/dashboard/admin');
+      router.push('/admin/dashboard');
     }
   };
 
   const handleEnterOfflinePreview = () => {
     loginOfflineDemo();
-    router.push('/dashboard');
+    router.push('/user/dashboard');
   };
 
   return (

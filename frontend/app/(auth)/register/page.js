@@ -53,7 +53,7 @@ function RegisterFormInner() {
     setCanUseDemoFallback(false);
     try {
       await registerAccount(values);
-      router.push('/dashboard');
+      router.push('/user/dashboard');
     } catch (err) {
       if (!applyServerErrors(err, setError)) {
         const isNetworkError =
@@ -92,7 +92,7 @@ function RegisterFormInner() {
                 className="btn btn-dark btn-sm"
                 onClick={() => {
                   loginOfflineDemo();
-                  router.push('/dashboard');
+                  router.push('/user/dashboard');
                 }}
               >
                 <FlaskConical size={14} /> Launch Interactive Demo Workspace →
@@ -201,7 +201,7 @@ function RegisterFormInner() {
           <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         </div>
 
-        <GoogleAuthButton redirectTo="/dashboard" label="Sign up with Google" />
+        <GoogleAuthButton redirectTo="/user/dashboard" label="Sign up with Google" />
       </form>
     </>
   );
