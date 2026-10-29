@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Next.js build output
+frontend/.next/
+frontend/out/
+
+# Environment variables & secrets (keep .env.example)
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Logs & databases
+*.log
+npm-debug.log*
+*.sqlite
+*.db
+
+# OS & editor files
+.DS_Store
+.idea/
+.vscode/
+coverage/
+

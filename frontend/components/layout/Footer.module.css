@@ -1,0 +1,145 @@
+.footer {
+  background: #0d1715;
+  color: #d6e3de;
+  padding-block: 72px 36px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.topGrid {
+  display: grid;
+  gap: 40px;
+  grid-template-columns: 1fr;
+  padding-bottom: 48px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 680px) {
+  .topGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .topGrid {
+    grid-template-columns: 1.8fr repeat(4, 1fr);
+  }
+}
+
+.brandCol {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.brandCol :global(a) {
+  color: #ffffff;
+}
+
+.brandDesc {
+  color: #9cb2aa;
+  font-size: 0.94rem;
+  max-width: 360px;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  background: rgba(22, 199, 132, 0.12);
+  border: 1px solid rgba(22, 199, 132, 0.25);
+  color: #a7f3d0;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.socials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.socialLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: var(--r-full);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.socialLink:hover {
+  background: var(--green);
+  color: #04261b;
+}
+
+.socialPlaceholder {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  color: #7d948c;
+  font-size: 0.74rem;
+}
+
+.navCol {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.colTitle {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+}
+
+.colList {
+  display: grid;
+  gap: 10px;
+}
+
+.colLink {
+  color: #9cb2aa;
+  font-size: 0.9rem;
+  transition: color 0.18s;
+}
+
+.colLink:hover {
+  color: var(--green);
+}
+
+.bottomBar {
+  padding-top: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: #7d948c;
+}
+
+.legalLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.legalLinks a:hover {
+  color: #ffffff;
+}
+

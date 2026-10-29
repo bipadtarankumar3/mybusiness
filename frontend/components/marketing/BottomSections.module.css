@@ -1,0 +1,354 @@
+.billingToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border-radius: var(--r-full);
+  background: var(--white);
+  border: 1px solid var(--border-strong);
+  margin-top: 6px;
+}
+
+.cycleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--r-full);
+  border: none;
+  background: transparent;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--muted);
+  transition: all 0.2s;
+}
+
+.cycleBtnActive {
+  background: var(--text);
+  color: #ffffff;
+}
+
+.pricingGrid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 680px) {
+  .pricingGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1120px) {
+  .pricingGrid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.planCard {
+  position: relative;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.planRecommended {
+  border: 2px solid var(--green);
+  box-shadow: var(--shadow-md);
+  background: linear-gradient(180deg, #f2fdf7 0%, #ffffff 36%);
+}
+
+.recBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  background: var(--green);
+  color: #04261b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  width: fit-content;
+}
+
+.planTop h3 {
+  font-size: 1.25rem;
+}
+
+.planBlurb {
+  font-size: 0.84rem;
+  color: var(--muted);
+  margin-top: 4px;
+  min-height: 40px;
+}
+
+.priceBox {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.priceCurrency {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.priceValue {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.pricePeriod {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-left: 3px;
+}
+
+.priceCustom {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.limitsList {
+  padding-block: 12px;
+  border-block: 1px solid var(--border);
+  display: grid;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.limitRow {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+}
+
+.limitRow strong {
+  color: var(--text);
+}
+
+.featureList {
+  display: grid;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+
+.featureList li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.featureList svg {
+  color: var(--green-deep);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.costNotice {
+  margin-top: 24px;
+}
+
+.comparisonWrap {
+  margin-top: 48px;
+}
+
+.comparisonTitle {
+  font-size: 1.35rem;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.tableScroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--white);
+}
+
+.compTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  min-width: 640px;
+}
+
+.compTable th,
+.compTable td {
+  padding: 13px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.compTable thead th {
+  background: var(--surface-2);
+  font-weight: 800;
+  color: var(--text);
+}
+
+.compTable tbody th {
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.pricingFaqWrap {
+  margin-top: 56px;
+  max-width: 820px;
+  margin-inline: auto;
+}
+
+/* FAQ Accordion */
+.faqSection {
+  background: linear-gradient(180deg, #f1f8f4 0%, #f7fbf8 100%);
+  border-top: 1px solid var(--border);
+}
+
+.faqContainer {
+  max-width: 820px;
+  margin-inline: auto;
+}
+
+.accordionList {
+  display: grid;
+  gap: 12px;
+}
+
+.accordionItem {
+  overflow: hidden;
+  border-radius: var(--r-lg);
+}
+
+.accordionTrigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.accordionTrigger:hover {
+  background: rgba(22, 199, 132, 0.05);
+}
+
+.accIcon {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform 0.22s var(--ease);
+}
+
+.accIconOpen {
+  transform: rotate(180deg);
+  color: var(--green-deep);
+}
+
+.accordionPanel {
+  overflow: hidden;
+}
+
+.accordionPanel p {
+  padding: 0 22px 18px;
+  color: var(--text-2);
+  font-size: 0.94rem;
+}
+
+/* Final CTA Banner */
+.ctaBanner {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-2xl);
+  padding: clamp(40px, 6vw, 72px) clamp(24px, 5vw, 64px);
+  background: linear-gradient(135deg, #065f46 0%, #087f5b 48%, #0f5132 100%);
+  color: #ffffff;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+
+.ctaGlowLeft,
+.ctaGlowRight {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(55px);
+  pointer-events: none;
+}
+
+.ctaGlowLeft {
+  width: 280px;
+  height: 280px;
+  background: rgba(22, 199, 132, 0.45);
+  top: -80px;
+  left: -60px;
+}
+
+.ctaGlowRight {
+  width: 260px;
+  height: 260px;
+  background: rgba(139, 92, 246, 0.38);
+  bottom: -90px;
+  right: -50px;
+}
+
+.ctaContent {
+  position: relative;
+  z-index: 1;
+  max-width: 680px;
+  margin-inline: auto;
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+}
+
+.ctaPill {
+  display: inline-flex;
+  padding: 5px 14px;
+  border-radius: var(--r-full);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #d1fae5;
+}
+
+.ctaContent h2 {
+  color: #ffffff;
+  font-size: var(--fs-h2);
+}
+
+.ctaContent p {
+  color: #d1fae5;
+  font-size: var(--fs-lead);
+}
+
+.ctaActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.ctaSecondaryBtn {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.ctaSecondaryBtn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+

@@ -1,0 +1,23 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.light {
+  color: #fff;
+}
+.mark {
+  transition: transform 0.4s var(--ease);
+  filter: drop-shadow(0 6px 12px rgba(22, 199, 132, 0.35));
+}
+.logo:hover .mark {
+  transform: rotate(-8deg) scale(1.05);
+}
+.word {
+  line-height: 1;
+}
+
